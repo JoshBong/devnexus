@@ -50,13 +50,6 @@ Do not silently update the contract or push without surfacing the mismatch.
 `;
 }
 
-export function operatorProfile() {
-  return `# Operator Profile
-
-Read \`../ai-profile/\` before starting work — it contains the user's working style, code preferences, and past corrections. If you notice a behavioral pattern or the user corrects you, ask to update the profile. Never repeat a correction logged in \`../ai-profile/CORRECTIONS.md\`.
-`;
-}
-
 export function codeIntelligence() {
   return `# Code Intelligence (GitNexus)
 

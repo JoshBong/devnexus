@@ -144,6 +144,15 @@ function backfillVault(vaultName) {
   if (!fs.existsSync(vaultDir)) return [];
   const changed = [];
 
+  // Remove the legacy operator-profile symlink (feature removed in v3.1).
+  const profileLink = path.resolve('ai-profile');
+  try {
+    if (fs.lstatSync(profileLink).isSymbolicLink()) {
+      fs.unlinkSync(profileLink);
+      changed.push('removed ai-profile symlink');
+    }
+  } catch { /* not present — fine */ }
+
   // practices/ (+ starters) and handoffs/
   const pdir = path.join(vaultDir, PRACTICES_DIR);
   if (!fs.existsSync(pdir)) {
@@ -214,8 +223,7 @@ function updateWorkspaceRules(vaultName) {
   writeFile(path.join(rulesDir, '01-session-start.md'), workspaceRules.sessionStart({ vaultName }));
   writeFile(path.join(rulesDir, '02-vault-rules.md'), workspaceRules.vaultRules({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), workspaceRules.contractDrift({ vaultName }));
-  writeFile(path.join(rulesDir, '04-profile-rules.md'), workspaceRules.profileRules());
-  writeFile(path.join(rulesDir, '05-vault-brain-mcp.md'), workspaceRules.mcpRules());
+  writeFile(path.join(rulesDir, '04-vault-brain-mcp.md'), workspaceRules.mcpRules());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 }
 
@@ -245,8 +253,7 @@ function updateRepoRules(absRepoDir, { projectName, vaultName, repoStack, agents
   writeFile(path.join(rulesDir, '01-source-of-truth.md'), repoRules.sourceOfTruth({ projectName, repoStack, vaultName }));
   writeFile(path.join(rulesDir, '02-decision-logic.md'), repoRules.decisionLogic({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), repoRules.contractDrift({ vaultName }));
-  writeFile(path.join(rulesDir, '04-operator-profile.md'), repoRules.operatorProfile());
-  writeFile(path.join(rulesDir, '05-code-intelligence.md'), repoRules.codeIntelligence());
+  writeFile(path.join(rulesDir, '04-code-intelligence.md'), repoRules.codeIntelligence());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 
   installContractHook(absRepoDir, vaultName);

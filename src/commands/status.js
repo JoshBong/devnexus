@@ -8,7 +8,7 @@ import { detectStack } from '../lib/detect-stack.js';
 import { getPointerFilename, pointerExists } from '../lib/agents.js';
 import { gitStatus, gitHasRemote, gitLastCommitTime, isGitRepo } from '../lib/git.js';
 import { readSyncStatus } from '../lib/vault-sync.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, DRIFT_DAYS_THRESHOLD, DEFAULT_VAULT_SYNC } from '../constants.js';
+import { TEMPLATE_VERSION, DRIFT_DAYS_THRESHOLD, DEFAULT_VAULT_SYNC } from '../constants.js';
 
 export function statusCommand() {
   const cmd = new Command('status')
@@ -72,27 +72,6 @@ function runStatus() {
   } else {
     console.log(chalk.bold('Vault:   ') + chalk.red(`${vaultName}/ (MISSING)`));
     issues.push({ msg: `Vault directory '${vaultName}' not found`, fix: `devnexus init` });
-  }
-
-  // Profile status
-  if (fs.existsSync(AI_PROFILE_DIR)) {
-    const prefsPath = path.join(AI_PROFILE_DIR, 'PREFERENCES.md');
-    let prefsInfo = '';
-    if (fs.existsSync(prefsPath)) {
-      const content = fs.readFileSync(prefsPath, 'utf-8');
-      const entries = (content.match(/^## /gm) || []).length;
-      if (entries > 0) prefsInfo = ` (${entries} entries in PREFERENCES.md)`;
-    }
-    console.log(chalk.bold('Profile: ') + `~/.ai-profile/${chalk.dim(prefsInfo)}`);
-  } else {
-    console.log(chalk.bold('Profile: ') + chalk.red('~/.ai-profile/ (MISSING)'));
-    issues.push({ msg: 'AI profile not found', fix: 'devnexus init' });
-  }
-
-  // Symlink check
-  const profileLink = path.resolve('ai-profile');
-  if (!fs.existsSync(profileLink)) {
-    issues.push({ msg: 'ai-profile symlink missing in workspace', fix: 'devnexus doctor --fix' });
   }
 
   // Workspace .ai-rules version

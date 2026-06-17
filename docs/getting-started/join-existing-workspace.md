@@ -63,8 +63,7 @@ This means when Engineer A logs a failed approach to `DECISIONS.md`, Engineer B'
 
 ```mermaid
 flowchart TD
-    A["Session Start"] --> B["~/.ai-profile/"]
-    B --> C["MOC.md — entry point"]
+    A["Session Start"] --> C["MOC.md — entry point"]
     C --> D["DECISIONS.md — what's been tried"]
     D --> E["SESSION_LOG.md — where things left off"]
     E --> F["ARCHITECTURE_OVERVIEW.md — system design"]

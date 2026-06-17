@@ -12,7 +12,6 @@ Read and follow all instructions in \`./.ai-rules/\` before starting work.
 | Directory | What it is |
 |-----------|------------|
 | \`./${vaultName}/\` | Obsidian vault — source of truth for all agents |
-| \`./ai-profile/\` | Symlink to ~/.ai-profile/ (your operator profile) |
 ${repoRows}
 
 ## Project-Specific Notes

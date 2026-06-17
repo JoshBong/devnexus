@@ -7,11 +7,10 @@ import { log } from '../lib/output.js';
 import { requireConfig, writeConfig } from '../lib/config.js';
 import { getPointerFilename, getAgentDisplay } from '../lib/agents.js';
 import { isGitRepo, gitHasRemote } from '../lib/git.js';
-import { ensureDir, createSymlink, addToGitignore, writeFile, writeFileIfNotExists } from '../lib/fs-helpers.js';
+import { ensureDir, addToGitignore, writeFile, writeFileIfNotExists } from '../lib/fs-helpers.js';
 import { detectStack } from '../lib/detect-stack.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, GITIGNORE_ENTRIES, DRIFT_DAYS_THRESHOLD, NODES_DIR, NODE_INDEX_FILE } from '../constants.js';
+import { TEMPLATE_VERSION, GITIGNORE_ENTRIES, DRIFT_DAYS_THRESHOLD, NODES_DIR, NODE_INDEX_FILE } from '../constants.js';
 import { hasIndex, readMeta } from '../lib/gitnexus-query.js';
-import * as profileTemplates from '../templates/profile.js';
 import * as repoRules from '../templates/repo-rules.js';
 import * as pointerTemplates from '../templates/pointers.js';
 
@@ -66,51 +65,7 @@ function runDoctor(opts) {
     });
   }
 
-  // 2. AI Profile
-  if (fs.existsSync(AI_PROFILE_DIR)) {
-    const files = ['WORKING_STYLE.md', 'PREFERENCES.md', 'CORRECTIONS.md'];
-    const missing = files.filter(f => !fs.existsSync(path.join(AI_PROFILE_DIR, f)));
-    if (missing.length === 0) {
-      pass('AI profile exists with all files');
-    } else {
-      fail(`AI profile missing: ${missing.join(', ')}`, 'devnexus doctor --fix', () => {
-        const map = {
-          'WORKING_STYLE.md': profileTemplates.workingStyle,
-          'PREFERENCES.md': profileTemplates.preferences,
-          'CORRECTIONS.md': profileTemplates.corrections,
-        };
-        for (const f of missing) {
-          writeFile(path.join(AI_PROFILE_DIR, f), map[f]());
-        }
-      });
-    }
-  } else {
-    fail('AI profile (~/.ai-profile/) not found', 'devnexus init');
-  }
-
-  // 3. Profile symlink
-  const profileLink = path.resolve('ai-profile');
-  if (fs.existsSync(profileLink)) {
-    try {
-      const target = fs.readlinkSync(profileLink);
-      if (fs.existsSync(target) || fs.existsSync(AI_PROFILE_DIR)) {
-        pass('AI profile symlink valid');
-      } else {
-        fail('AI profile symlink points to missing target', 'devnexus doctor --fix', () => {
-          fs.unlinkSync(profileLink);
-          createSymlink(AI_PROFILE_DIR, profileLink);
-        });
-      }
-    } catch {
-      warn('ai-profile exists but is not a symlink');
-    }
-  } else {
-    fail('AI profile symlink missing in workspace', 'devnexus doctor --fix', () => {
-      createSymlink(AI_PROFILE_DIR, profileLink);
-    });
-  }
-
-  // 4. Vault
+  // 2. Vault
   const vaultDir = path.resolve(vaultName);
   if (fs.existsSync(vaultDir)) {
     // Support both old (ARCHITECTURE.md) and new (ARCHITECTURE_OVERVIEW.md + MOC.md) layouts
@@ -155,7 +110,7 @@ function runDoctor(opts) {
     }
 
     // Check expected files
-    const expectedRules = ['01-session-start.md', '02-vault-rules.md', '03-contract-drift.md', '04-profile-rules.md'];
+    const expectedRules = ['01-session-start.md', '02-vault-rules.md', '03-contract-drift.md', '04-vault-brain-mcp.md'];
     const missingRules = expectedRules.filter(f => !fs.existsSync(path.join(wsRulesDir, f)));
     if (missingRules.length > 0) {
       fail(`Workspace .ai-rules/ missing: ${missingRules.join(', ')}`, 'devnexus update');
@@ -207,8 +162,7 @@ function runDoctor(opts) {
         writeFile(path.join(repoRulesDir, '01-source-of-truth.md'), repoRules.sourceOfTruth({ projectName, repoStack, vaultName }));
         writeFile(path.join(repoRulesDir, '02-decision-logic.md'), repoRules.decisionLogic({ vaultName }));
         writeFile(path.join(repoRulesDir, '03-contract-drift.md'), repoRules.contractDrift({ vaultName }));
-        writeFile(path.join(repoRulesDir, '04-operator-profile.md'), repoRules.operatorProfile());
-        writeFile(path.join(repoRulesDir, '05-code-intelligence.md'), repoRules.codeIntelligence());
+        writeFile(path.join(repoRulesDir, '04-code-intelligence.md'), repoRules.codeIntelligence());
         writeFile(path.join(repoRulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
       });
     }

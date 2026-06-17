@@ -99,8 +99,7 @@ async function runAdd(repos, opts) {
     writeFile(path.join(rulesDir, '01-source-of-truth.md'), repoRules.sourceOfTruth({ projectName, repoStack, vaultName }));
     writeFile(path.join(rulesDir, '02-decision-logic.md'), repoRules.decisionLogic({ vaultName }));
     writeFile(path.join(rulesDir, '03-contract-drift.md'), repoRules.contractDrift({ vaultName }));
-    writeFile(path.join(rulesDir, '04-operator-profile.md'), repoRules.operatorProfile());
-    writeFile(path.join(rulesDir, '05-code-intelligence.md'), repoRules.codeIntelligence());
+    writeFile(path.join(rulesDir, '04-code-intelligence.md'), repoRules.codeIntelligence());
     writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 
     installContractHook(absDir, vaultName);

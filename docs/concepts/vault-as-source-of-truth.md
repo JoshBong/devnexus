@@ -55,12 +55,11 @@ flowchart LR
 
 Agents read the vault in a specific order at session start:
 
-1. **`~/.ai-profile/`** — How you work (preferences, corrections, working style)
-2. **`MOC.md`** — Orient: what repos exist, where things are
-3. **`DECISIONS.md`** — What's been tried and rejected
-4. **`SESSION_LOG.md`** — Where the last session left off
-5. **`ARCHITECTURE_OVERVIEW.md`** — System design (on demand, not always)
-6. **`NODE_INDEX.md`** — Code graph navigation (if populated)
+1. **`MOC.md`** — Orient: what repos exist, where things are
+2. **`DECISIONS.md`** — What's been tried and rejected
+3. **`SESSION_LOG.md`** — Where the last session left off
+4. **`ARCHITECTURE_OVERVIEW.md`** — System design (on demand, not always)
+5. **`NODE_INDEX.md`** — Code graph navigation (if populated)
 
 This order is intentional. Decisions and session state are read before architecture because they change more frequently and are more likely to prevent wasted work.
 

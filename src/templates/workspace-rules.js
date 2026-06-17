@@ -1,15 +1,7 @@
 export function sessionStart({ vaultName }) {
   return `# Session Start
 
-## Read Your Operator
-
-Before reading the vault, read these files to understand who you're working with:
-
-1. \`~/.ai-profile/WORKING_STYLE.md\` — how this person works and communicates
-2. \`~/.ai-profile/PREFERENCES.md\` — code taste, commit style, autonomy level
-3. \`~/.ai-profile/CORRECTIONS.md\` — past behavioral corrections; never repeat these
-
-## Then Read the Vault
+## Read the Vault
 
 Read these vault files before doing anything else:
 
@@ -214,23 +206,3 @@ more reliable surface over the same files — the rules above still apply either
 `;
 }
 
-export function profileRules() {
-  return `# Profile & Session Update Rules
-
-## Update \`~/.ai-profile/CORRECTIONS.md\` when:
-- The user corrects your behavior (e.g., "stop doing X", "don't do that", "I told you already")
-- Format: \`## YYYY-MM-DD — Short description\` followed by one sentence
-- Then update the relevant profile file (\`WORKING_STYLE.md\` or \`PREFERENCES.md\`) to reflect the correction
-
-## Update \`~/.ai-profile/WORKING_STYLE.md\` or \`PREFERENCES.md\` when:
-- You notice a consistent pattern (e.g., user always discusses before coding)
-- The user states a preference explicitly (e.g., "I like conventional commits")
-- A correction changes a previously recorded preference
-- Always ask first: *"I noticed [pattern]. Want me to add that to your profile?"*
-
-## Update \`SESSION_LOG.md\` at session end:
-- When the user says "done", "that's it", "ship it", or ends the session
-- Say: *"Want me to log a session handoff note so the next session knows where we left off?"*
-- Format: \`## YYYY-MM-DD — Summary (by [name])\` followed by two lines max
-`;
-}

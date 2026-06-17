@@ -72,10 +72,10 @@ Every agent, regardless of type, gets these rules:
 
 | File | Purpose |
 |------|---------|
-| `01-session-start.md` | Read AI profile, then vault files in order: MOC → DECISIONS → SESSION_LOG → ARCHITECTURE_OVERVIEW |
+| `01-session-start.md` | Read vault files in order: MOC → DECISIONS → SESSION_LOG → ARCHITECTURE_OVERVIEW |
 | `02-vault-rules.md` | When to update API_CONTRACTS.md, ARCHITECTURE_OVERVIEW.md, DECISIONS.md |
 | `03-contract-drift.md` | Before pushing: check code against API_CONTRACTS.md, stop if mismatched |
-| `04-profile-rules.md` | When to update `~/.ai-profile/` (corrections, preferences, session logs) |
+| `04-vault-brain-mcp.md` | devnexus MCP tools: vault_context, search_vault, why |
 
 ### Repo Level (`.ai-rules/`)
 
@@ -84,8 +84,7 @@ Every agent, regardless of type, gets these rules:
 | `01-source-of-truth.md` | Vault is truth — check it before writing code |
 | `02-decision-logic.md` | Consult API_CONTRACTS.md and DECISIONS.md before proposing changes |
 | `03-contract-drift.md` | Pre-push contract check with three resolution options |
-| `04-operator-profile.md` | Read `~/.ai-profile/` — never repeat logged corrections |
-| `05-code-intelligence.md` | GitNexus tool usage: when to query, impact, context, rename |
+| `04-code-intelligence.md` | GitNexus tool usage: when to query, impact, context, rename |
 
 ## Updating Rules After a devnexus Upgrade
 
@@ -95,7 +94,7 @@ When devnexus releases new rule templates:
 devnexus update
 ```
 
-This regenerates `.ai-rules/` across workspace and repos, syncs inline agent files, and updates git hooks. Vault content and AI profile are never touched.
+This regenerates `.ai-rules/` across workspace and repos, syncs inline agent files, and updates git hooks. Vault content is never touched.
 
 ## Next Steps
 

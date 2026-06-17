@@ -10,15 +10,15 @@ workspace/
 │   ├── 01-session-start.md
 │   ├── 02-vault-rules.md
 │   ├── 03-contract-drift.md
-│   ├── 04-profile-rules.md
+│   ├── 04-vault-brain-mcp.md
 │   └── version.txt
 ├── repo-a/
 │   └── .ai-rules/               # Repo-level rules (5 files)
+│       ├── 00-gate.md
 │       ├── 01-source-of-truth.md
 │       ├── 02-decision-logic.md
 │       ├── 03-contract-drift.md
-│       ├── 04-operator-profile.md
-│       ├── 05-code-intelligence.md
+│       ├── 04-code-intelligence.md
 │       └── version.txt
 └── repo-b/
     └── .ai-rules/               # Same structure, same rules
@@ -32,10 +32,9 @@ workspace/
 
 Tells the agent what to read and in what order at session start:
 
-1. Read `~/.ai-profile/` (WORKING_STYLE.md, PREFERENCES.md, CORRECTIONS.md)
-2. Read vault files: MOC → DECISIONS → SESSION_LOG → ARCHITECTURE_OVERVIEW
-3. If `NODE_INDEX.md` exists, check god nodes and communities
-4. Use GitNexus MCP tools for code exploration
+1. Read vault files: MOC → DECISIONS → SESSION_LOG → ARCHITECTURE_OVERVIEW
+2. If `NODE_INDEX.md` exists, check god nodes and communities
+3. Use GitNexus MCP tools for code exploration
 
 ### 02-vault-rules.md
 
@@ -57,13 +56,13 @@ Before pushing:
    - Check downstream impact
 3. Never silently update the contract or push with a mismatch
 
-### 04-profile-rules.md
+### 04-vault-brain-mcp.md
 
-When to update the AI profile:
+When to use the devnexus MCP tools for the vault:
 
-- Add to `CORRECTIONS.md` when the user corrects agent behavior
-- Add to `PREFERENCES.md` when a pattern or preference is noticed
-- Write to `SESSION_LOG.md` at session end with a two-line handoff
+- `vault_context` to pull the current vault state at session start
+- `search_vault` to find decisions and contracts by concept
+- `why` to surface the reasoning behind a logged decision
 
 ## Repo Rules
 
@@ -85,11 +84,7 @@ Before coding:
 
 Same contract check as workspace level, scoped to this repo's API changes.
 
-### 04-operator-profile.md
-
-Read `~/.ai-profile/` before starting work. Never repeat a correction already logged in `CORRECTIONS.md`.
-
-### 05-code-intelligence.md
+### 04-code-intelligence.md
 
 GitNexus tool usage rules:
 

@@ -239,7 +239,7 @@ Run `devnexus why retryFetch` — it returns the decisions (and the commits) beh
 A pre-push hook that blocks pushes when API dirs change without updating `API_CONTRACTS.md`. Bypass with `git push --no-verify`.
 
 **Second project?**
-`devnexus init` in a new folder. It reuses your existing `~/.ai-profile/`.
+`devnexus init` in a new folder. Each workspace is independent.
 
 ---
 
@@ -247,4 +247,4 @@ A pre-push hook that blocks pushes when API dirs change without updating `API_CO
 
 [PolyForm Noncommercial 1.0.0](LICENSE) — free for personal and noncommercial use.
 
-For commercial or enterprise licensing, contact [josh@settled.live](mailto:josh@settled.live).
+For commercial or enterprise licensing, contact [huangjoshuawork@gmail.com](mailto:huangjoshuawork@gmail.com).

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-devnexus uses three configuration layers: workspace config, AI profile, and vault registration.
+devnexus uses two configuration layers: workspace config and vault registration.
 
 ## .workspace-config
 
@@ -54,36 +54,6 @@ JSON file at the workspace root. Created by `devnexus init`, updated by most com
 | `lastIndexed` | When `devnexus index` last ran |
 | `indexStats` | Symbol, community, god node, bridge counts from last index |
 | `indexSnapshot` | God node names and community names from last index (used for diff) |
-
-## AI Profile (~/.ai-profile/)
-
-Global directory, shared across all workspaces. Symlinked into each workspace as `ai-profile/`.
-
-```
-~/.ai-profile/
-├── WORKING_STYLE.md    # How you prefer to work with AI agents
-├── PREFERENCES.md      # Code taste, commit style, response format
-└── CORRECTIONS.md      # Behavioral corrections (reverse-chronological)
-```
-
-### WORKING_STYLE.md
-
-Fills in over time as agents learn how you work. Starts empty. Agents add entries based on observed patterns.
-
-### PREFERENCES.md
-
-Code preferences, commit message style, response format, autonomy level. Agents add entries when they notice a preference or you state one.
-
-### CORRECTIONS.md
-
-Reverse-chronological log of behavioral corrections. When you tell an agent "don't do that," it logs the correction here. Future agents read it and don't repeat the mistake.
-
-Format:
-```markdown
-## 2026-04-15 — Don't add Co-Authored-By to commits
-
-User corrected: never add Co-Authored-By: Claude to git commit messages.
-```
 
 ## Vault Registration (~/.claude/vault-map.json)
 

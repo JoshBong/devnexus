@@ -3,10 +3,9 @@ import path from 'path';
 import os from 'os';
 import { getPointerFilename, getAgentDisplay } from './agents.js';
 import { isGitRepo, gitHasRemote } from './git.js';
-import { ensureDir, createSymlink, addToGitignore, writeFile, writeFileIfNotExists } from './fs-helpers.js';
+import { ensureDir, addToGitignore, writeFile, writeFileIfNotExists } from './fs-helpers.js';
 import { detectStack } from './detect-stack.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, GITIGNORE_ENTRIES } from '../constants.js';
-import * as profileTemplates from '../templates/profile.js';
+import { TEMPLATE_VERSION, GITIGNORE_ENTRIES } from '../constants.js';
 import * as repoRules from '../templates/repo-rules.js';
 import * as pointerTemplates from '../templates/pointers.js';
 
@@ -20,46 +19,6 @@ export function verifyBuild(config) {
     results.fails++;
     results.issues.push({ level: 'fail', msg });
     if (fixFn) results.fixes.push({ msg, fn: fixFn });
-  }
-
-  // AI Profile
-  if (fs.existsSync(AI_PROFILE_DIR)) {
-    const files = ['WORKING_STYLE.md', 'PREFERENCES.md', 'CORRECTIONS.md'];
-    const missing = files.filter(f => !fs.existsSync(path.join(AI_PROFILE_DIR, f)));
-    if (missing.length === 0) {
-      pass();
-    } else {
-      fail(`AI profile missing: ${missing.join(', ')}`, () => {
-        const map = {
-          'WORKING_STYLE.md': profileTemplates.workingStyle,
-          'PREFERENCES.md': profileTemplates.preferences,
-          'CORRECTIONS.md': profileTemplates.corrections,
-        };
-        for (const f of missing) writeFile(path.join(AI_PROFILE_DIR, f), map[f]());
-      });
-    }
-  } else {
-    fail('AI profile (~/.ai-profile/) not found');
-  }
-
-  // Profile symlink
-  const profileLink = path.resolve('ai-profile');
-  if (fs.existsSync(profileLink)) {
-    try {
-      const target = fs.readlinkSync(profileLink);
-      if (fs.existsSync(target) || fs.existsSync(AI_PROFILE_DIR)) {
-        pass();
-      } else {
-        fail('AI profile symlink broken', () => {
-          fs.unlinkSync(profileLink);
-          createSymlink(AI_PROFILE_DIR, profileLink);
-        });
-      }
-    } catch { warn('ai-profile exists but is not a symlink'); }
-  } else {
-    fail('AI profile symlink missing', () => {
-      createSymlink(AI_PROFILE_DIR, profileLink);
-    });
   }
 
   // Vault
@@ -84,7 +43,7 @@ export function verifyBuild(config) {
     if (version === TEMPLATE_VERSION) pass();
     else fail(`.ai-rules/ at v${version || '?'} (latest: v${TEMPLATE_VERSION})`);
 
-    const expectedRules = ['01-session-start.md', '02-vault-rules.md', '03-contract-drift.md', '04-profile-rules.md'];
+    const expectedRules = ['01-session-start.md', '02-vault-rules.md', '03-contract-drift.md', '04-vault-brain-mcp.md'];
     const missing = expectedRules.filter(f => !fs.existsSync(path.join(wsRulesDir, f)));
     if (missing.length > 0) fail(`Workspace .ai-rules/ missing: ${missing.join(', ')}`);
     else pass();
@@ -125,8 +84,7 @@ export function verifyBuild(config) {
         writeFile(path.join(repoRulesDir, '01-source-of-truth.md'), repoRules.sourceOfTruth({ projectName, repoStack, vaultName }));
         writeFile(path.join(repoRulesDir, '02-decision-logic.md'), repoRules.decisionLogic({ vaultName }));
         writeFile(path.join(repoRulesDir, '03-contract-drift.md'), repoRules.contractDrift({ vaultName }));
-        writeFile(path.join(repoRulesDir, '04-operator-profile.md'), repoRules.operatorProfile());
-        writeFile(path.join(repoRulesDir, '05-code-intelligence.md'), repoRules.codeIntelligence());
+        writeFile(path.join(repoRulesDir, '04-code-intelligence.md'), repoRules.codeIntelligence());
         writeFile(path.join(repoRulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
       });
     }

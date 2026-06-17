@@ -27,8 +27,6 @@ devnexus completion uninstall    # Remove shell tab completion
 Set up a new AI-augmented workspace. Interactive — prompts for project details.
 
 **What it creates:**
-- `~/.ai-profile/` (global, one-time) — WORKING_STYLE.md, PREFERENCES.md, CORRECTIONS.md
-- `ai-profile/` symlink → `~/.ai-profile/`
 - Obsidian vault with 6 core files + full Obsidian config
 - `.ai-rules/` at workspace level (4 rule files)
 - `.ai-rules/` per repo (5 rule files)
@@ -84,7 +82,7 @@ devnexus update --force   # Force regeneration regardless of version
 
 **Updates:** Workspace `.ai-rules/`, per-repo `.ai-rules/`, inline agent pointers (Cursor, Windsurf), git hooks.
 
-**Does NOT touch:** Vault content, AI profile, non-inline pointer files (CLAUDE.md, AGENTS.md).
+**Does NOT touch:** Vault content, non-inline pointer files (CLAUDE.md, AGENTS.md).
 
 ---
 
@@ -119,7 +117,7 @@ Does NOT delete the repo directory.
 
 Show workspace health dashboard.
 
-Displays: project name, vault status (git state, last commit), AI profile status, `.ai-rules/` versions, agent pointer status per repo, code graph index stats (symbols, communities, god nodes, staleness).
+Displays: project name, vault status (git state, last commit), `.ai-rules/` versions, agent pointer status per repo, code graph index stats (symbols, communities, god nodes, staleness).
 
 ---
 
@@ -134,8 +132,6 @@ devnexus doctor --fix   # Auto-repair what's possible
 
 **Checks:**
 - Config exists and is valid
-- AI profile exists with all files
-- AI profile symlink valid
 - Vault has all expected files + git remote
 - `.ai-rules/` at latest version (workspace + per-repo)
 - Agent pointer files exist

@@ -57,7 +57,7 @@ my-project-vault/
 ├── 01-session-start.md       # What to read and in what order
 ├── 02-vault-rules.md         # When to update vault files
 ├── 03-contract-drift.md      # Block pushes if API contracts are stale
-└── 04-profile-rules.md       # When to update your AI profile
+└── 04-vault-brain-mcp.md     # devnexus MCP tools for the vault
 ```
 
 Each repo also gets its own `.ai-rules/` with repo-specific rules (source of truth, decision logic, code intelligence).
@@ -74,11 +74,10 @@ Each repo also gets its own `.ai-rules/` with repo-specific rules (source of tru
 
 Open the vault in Obsidian, then start your AI agent. It will:
 
-1. Read your AI profile (`~/.ai-profile/`) to learn how you work
-2. Read `MOC.md` → `DECISIONS.md` → `SESSION_LOG.md` to pick up where the last session left off
-3. Check `API_CONTRACTS.md` before making API changes
-4. Log any rejected approaches to `DECISIONS.md` during the session
-5. Write a handoff note to `SESSION_LOG.md` when you're done
+1. Read `MOC.md` → `DECISIONS.md` → `SESSION_LOG.md` to pick up where the last session left off
+2. Check `API_CONTRACTS.md` before making API changes
+3. Log any rejected approaches to `DECISIONS.md` during the session
+4. Write a handoff note to `SESSION_LOG.md` when you're done
 
 That's it. Every future session starts with full context from every past session.
 
@@ -90,7 +89,6 @@ devnexus generates files that should not be committed to your project repos. Add
 # devnexus
 .ai-rules/
 .workspace-config
-ai-profile/
 *-vault/
 
 # agent pointer files

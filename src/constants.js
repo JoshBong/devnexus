@@ -1,11 +1,6 @@
-import os from 'os';
-import path from 'path';
-
-export const TEMPLATE_VERSION = '3.0';
+export const TEMPLATE_VERSION = '3.1';
 export const CONFIG_VERSION = '2.0';
 export const CONFIG_FILE = '.workspace-config';
-
-export const AI_PROFILE_DIR = path.join(os.homedir(), '.ai-profile');
 
 // MCP server — devnexus exposes the vault as live tools agents call in-session
 export const MCP_SERVER_NAME = 'devnexus';

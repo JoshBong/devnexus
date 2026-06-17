@@ -11,11 +11,10 @@ import { writeConfig, readConfig } from '../lib/config.js';
 import { detectStack } from '../lib/detect-stack.js';
 import { validateAgents, getPointerFilename, getAgentDisplay, isInlineAgent } from '../lib/agents.js';
 import { gitClone, gitInit, gitAddAll, gitCommit, isGitRepo, isGitUrl, repoDirFromUrl } from '../lib/git.js';
-import { ensureDir, createSymlink, addToGitignore, writeFile, writeFileIfNotExists, migrateExistingPointer, concatenateRules, extractGitNexusBlock, writeManagedPointer } from '../lib/fs-helpers.js';
+import { ensureDir, addToGitignore, writeFile, writeFileIfNotExists, migrateExistingPointer, concatenateRules, extractGitNexusBlock, writeManagedPointer } from '../lib/fs-helpers.js';
 import { promptProjectInfo, promptRepos, promptAgents, promptExistingVault } from '../lib/prompts.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, GITIGNORE_ENTRIES, DECISIONS_DIR, PRACTICES_DIR, HANDOFFS_DIR, DEFAULT_VAULT_SYNC, DEFAULT_VAULT_WATCH } from '../constants.js';
+import { TEMPLATE_VERSION, GITIGNORE_ENTRIES, DECISIONS_DIR, PRACTICES_DIR, HANDOFFS_DIR, DEFAULT_VAULT_SYNC, DEFAULT_VAULT_WATCH } from '../constants.js';
 import { writeMcpConfig } from '../lib/mcp-config.js';
-import * as profileTemplates from '../templates/profile.js';
 import * as vaultTemplates from '../templates/vault.js';
 import * as obsidianTemplates from '../templates/obsidian.js';
 import * as workspaceRules from '../templates/workspace-rules.js';
@@ -107,9 +106,6 @@ async function runInit(opts) {
 
   // Phase 1: Vault
   let s = createSpinner('Creating vault...').start();
-  setupProfile();
-  const profileLink = path.join(workspaceDir, 'ai-profile');
-  createSymlink(AI_PROFILE_DIR, profileLink);
   createVault({ vaultName, projectName, description, techStack, author, date, workspaceDir, repos: [] });
   s.succeed('Creating vault...');
 
@@ -244,10 +240,6 @@ async function runJoin(vaultSource, workspaceDir, opts) {
     ? vaultName.slice(0, -6)
     : vaultName;
 
-  setupProfile();
-  const profileLink = path.join(workspaceDir, 'ai-profile');
-  createSymlink(AI_PROFILE_DIR, profileLink);
-
   const { author } = await inquirer.prompt([
     {
       type: 'input',
@@ -366,15 +358,6 @@ function autoDetectTechStack(repoInputs, workspaceDir) {
   return stacks.size > 0 ? [...stacks].join(', ') : 'Not detected';
 }
 
-function setupProfile() {
-  if (!fs.existsSync(AI_PROFILE_DIR)) {
-    ensureDir(AI_PROFILE_DIR);
-    writeFile(path.join(AI_PROFILE_DIR, 'WORKING_STYLE.md'), profileTemplates.workingStyle());
-    writeFile(path.join(AI_PROFILE_DIR, 'PREFERENCES.md'), profileTemplates.preferences());
-    writeFile(path.join(AI_PROFILE_DIR, 'CORRECTIONS.md'), profileTemplates.corrections());
-  }
-}
-
 async function setupRepo(repo, workspaceDir, shouldClone) {
   const isUrl = isGitUrl(repo);
 
@@ -449,8 +432,7 @@ function createWorkspaceRules(vaultName, workspaceDir) {
   writeFile(path.join(rulesDir, '01-session-start.md'), workspaceRules.sessionStart({ vaultName }));
   writeFile(path.join(rulesDir, '02-vault-rules.md'), workspaceRules.vaultRules({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), workspaceRules.contractDrift({ vaultName }));
-  writeFile(path.join(rulesDir, '04-profile-rules.md'), workspaceRules.profileRules());
-  writeFile(path.join(rulesDir, '05-vault-brain-mcp.md'), workspaceRules.mcpRules());
+  writeFile(path.join(rulesDir, '04-vault-brain-mcp.md'), workspaceRules.mcpRules());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 }
 
@@ -499,8 +481,7 @@ function setupRepoFiles({ repoDir, projectName, vaultName, agents, workspaceDir 
   writeFile(path.join(rulesDir, '01-source-of-truth.md'), repoRules.sourceOfTruth({ projectName, repoStack, vaultName }));
   writeFile(path.join(rulesDir, '02-decision-logic.md'), repoRules.decisionLogic({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), repoRules.contractDrift({ vaultName }));
-  writeFile(path.join(rulesDir, '04-operator-profile.md'), repoRules.operatorProfile());
-  writeFile(path.join(rulesDir, '05-code-intelligence.md'), repoRules.codeIntelligence());
+  writeFile(path.join(rulesDir, '04-code-intelligence.md'), repoRules.codeIntelligence());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 
   // Install contract drift pre-push hook
@@ -609,7 +590,6 @@ function printDryRun({ projectName, vaultName, repoInputs, agents, workspaceDir 
   log.plain(`Directory:  ${workspaceDir}`);
   console.log('');
   log.plain('Would create:');
-  log.plain('  ~/.ai-profile/ (if not exists)');
   log.plain(`  ${vaultName}/ (Obsidian vault)`);
   log.plain('  .ai-rules/ (workspace rules)');
   log.plain('  .workspace-config');

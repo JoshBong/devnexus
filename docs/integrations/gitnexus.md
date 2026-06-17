@@ -124,7 +124,7 @@ An edge is a bridge if it's the **sole call edge** between two communities. Remo
 
 ## GitNexus MCP Tools via devnexus
 
-The repo-level `.ai-rules/05-code-intelligence.md` instructs agents to use GitNexus MCP tools:
+The repo-level `.ai-rules/04-code-intelligence.md` instructs agents to use GitNexus MCP tools:
 
 | Tool | When To Use |
 |------|------------|
