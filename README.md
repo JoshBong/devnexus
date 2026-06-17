@@ -18,6 +18,8 @@ When one engineer's agent discovers that approach X doesn't work, that knowledge
 
 devnexus gives every agent a vault they read before writing any code. Decisions, architecture, and API contracts persist across sessions and engineers. Context compounds instead of resetting.
 
+As of **v3**, the vault is also an **MCP server** — agents read and write it live as they work, and you read the same store to review their work and remember *why* something was done. Same brain, two readers: the agent and you. Run `devnexus why <symbol>` and get the decisions (and the commits) behind any piece of code.
+
 ---
 
 ## Quick Start
@@ -76,7 +78,7 @@ The vault needs a git remote to sync across machines and teammates.
 3. Open Obsidian → File → Open Vault → select `your-vault/`
 4. Settings → Community Plugins → install "Git" (by Vinzent)
 
-The Git plugin is pre-configured by `devnexus init` — auto-commit and auto-pull every minute, push after commit, pull on startup.
+**Sync is devnexus-owned (v3).** When an agent writes a decision or handoff through the MCP, devnexus commits and pushes it to the vault remote right then — and an embedded watcher commits + pushes your manual edits too, catching up anything you changed offline the next time an agent session starts. It's fail-soft (offline → commit locally, push later) and conflict-safe (atomic files + pull-before-write). Obsidian Git is left configured for **auto-pull only** (live viewing); devnexus does the committing. Check state with `devnexus status`, or force a sync with `devnexus sync`.
 
 ---
 
@@ -129,7 +131,37 @@ devnexus agent add <agent>        add an agent (claude, cursor, codex, windsurf)
 devnexus agent rm <agent>         remove an agent
 devnexus completion install       set up shell tab completion (bash/zsh/fish)
 devnexus completion uninstall     remove tab completion
+devnexus mcp                      run the MCP server (agents call this, not you)
+devnexus sync                     commit & push vault changes (or --watch)
+devnexus why <symbol>             show the decisions & commits behind a symbol
 ```
+
+---
+
+## MCP: the vault as live agent tools
+
+devnexus is a CLI **and** an MCP server. The CLI is for humans setting up the
+workspace; the MCP is for agents reading and writing the shared brain *during* a
+session. `devnexus init` / `update` auto-register the server for each agent
+(`.mcp.json` for Claude, `.cursor/mcp.json` for Cursor; global config or printed
+instructions for Codex/Windsurf) — you never launch it by hand.
+
+Instead of hoping an agent reads the right files, it calls tools it's told to use:
+
+| Tool | Use |
+|------|-----|
+| `vault_context` | Call first every session — MOC + contracts + recent handoffs + practice areas |
+| `search_vault` | Ranked search over decisions, architecture, nodes, archive — before any architectural change |
+| `get_contract` | API contracts verbatim — the final authority |
+| `log_decision` | Persist a decision (project-level or symbol-linked) as it happens |
+| `log_handoff` | Structured session handoff for the next agent/engineer |
+| `god_nodes` / `communities` | devnexus's structural analysis — read before touching shared structures |
+| `practices` | Project code conventions by area (frontend, auth, …) — before you write |
+| `why` | The decisions + commits behind a symbol — the provenance, for agent or human |
+
+devnexus owns the **knowledge layer + derived structure**; [GitNexus](https://github.com/abhigyanpatwari/GitNexus) owns
+the **raw code graph** (callers, blast radius, safe renames). Run both — they compose.
+Full reference: [docs/MCP.md](docs/MCP.md).
 
 ---
 
@@ -144,14 +176,17 @@ devnexus builds a **code graph** from your repos and writes it into the vault as
 - **Bridges** — the sole call edge between two communities. If it breaks, those communities disconnect.
 - **Knowledge gaps** — thin communities, oversized communities, low cohesion. Structural warning signs.
 
-What ends up in the vault:
+The vault has two layers (v3):
 
-| File | What it is |
+- **Authored** — `decisions/`, `handoffs/`, `API_CONTRACTS.md`, `practices/`. Written by you and your agents, **committed and shared**, branch-agnostic. This is the durable "why."
+- **Derived** — the code graph below. Regenerated from code by `devnexus index`, so it's **local + per-branch + gitignored** (each engineer's index follows their own checkout — no merge fights).
+
+| Derived file | What it is |
 |------|------------|
-| `nodes/{community}/*.md` | Individual symbol files — callers, callees, linked decisions |
-| `NODE_INDEX.md` | Every symbol with tier (god/hub/regular), edges, centrality score |
+| `NODE_INDEX.md` | A clean, human "Code Map" — god nodes and areas in plain language |
+| `NODE_INDEX.json` | The complete structured record — what the MCP tools and (later) the plugin read |
+| `nodes/{community}/*.md` | Per-symbol cards — lead with *why* (decisions), then callers/callees |
 | `GRAPH_REPORT.md` | Structural analysis — god nodes, bridges, gaps, diff from last index |
-| `decisions/DECISION_INDEX.md` | Auto-generated index of symbol-linked decisions |
 
 Cross-repo symbols are namespaced (`frontend::UserCard` vs `backend::UserCard`), so the merged graph shows how repos connect without collisions.
 
@@ -177,9 +212,9 @@ For details: [Integrations Guide](docs/INTEGRATIONS.md)
 |-|----------|---------|
 | `git` | Yes | Vault sync, repo cloning |
 | `node` ≥18 | Yes | Running devnexus |
-| [Obsidian](https://obsidian.md/) | Yes | Free markdown editor — browse and sync the vault |
+| [Obsidian](https://obsidian.md/) | Recommended | Free markdown editor — browse the vault (the vault is plain markdown; any editor works) |
 | AI agent (Claude Code, Cursor, Windsurf, Codex) | Yes | At least one |
-| [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | No | Code intelligence — see [Integrations](docs/INTEGRATIONS.md) |
+| [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | **Yes (v3)** | Powers the code graph — `devnexus init` installs it for you |
 
 ---
 
@@ -195,7 +230,10 @@ No — it's managed by devnexus. Your customizations belong in pointer files (`C
 `devnexus agent add windsurf`. List: `devnexus agent ls`. Remove: `devnexus agent rm cursor`.
 
 **How do I update?**
-`devnexus upgrade`. Updates the package and regenerates `.ai-rules/` and git hooks.
+`devnexus upgrade`. Updates the package and regenerates `.ai-rules/` and git hooks. Upgrading to v3 also migrates the vault: scaffolds `practices/` + `handoffs/`, switches to devnexus-owned sync, and moves the derived code graph to local/per-branch (it prints a one-line commit to finish the migration).
+
+**Why does my code say `retryFetch` polls?**
+Run `devnexus why retryFetch` — it returns the decisions (and the commits) behind that symbol. Agents call the same thing via the MCP `why` tool before changing code they don't understand.
 
 **What is the contract drift check?**
 A pre-push hook that blocks pushes when API dirs change without updating `API_CONTRACTS.md`. Bypass with `git push --no-verify`.

@@ -13,7 +13,8 @@ import { validateAgents, getPointerFilename, getAgentDisplay, isInlineAgent } fr
 import { gitClone, gitInit, gitAddAll, gitCommit, isGitRepo, isGitUrl, repoDirFromUrl } from '../lib/git.js';
 import { ensureDir, createSymlink, addToGitignore, writeFile, writeFileIfNotExists, migrateExistingPointer, concatenateRules, extractGitNexusBlock, writeManagedPointer } from '../lib/fs-helpers.js';
 import { promptProjectInfo, promptRepos, promptAgents, promptExistingVault } from '../lib/prompts.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, GITIGNORE_ENTRIES, DECISIONS_DIR } from '../constants.js';
+import { TEMPLATE_VERSION, AI_PROFILE_DIR, GITIGNORE_ENTRIES, DECISIONS_DIR, PRACTICES_DIR, HANDOFFS_DIR, DEFAULT_VAULT_SYNC, DEFAULT_VAULT_WATCH } from '../constants.js';
+import { writeMcpConfig } from '../lib/mcp-config.js';
 import * as profileTemplates from '../templates/profile.js';
 import * as vaultTemplates from '../templates/vault.js';
 import * as obsidianTemplates from '../templates/obsidian.js';
@@ -141,8 +142,11 @@ async function runInit(opts) {
     description,
     author,
     templateVersion: TEMPLATE_VERSION,
+    vaultSync: DEFAULT_VAULT_SYNC,
+    vaultWatch: DEFAULT_VAULT_WATCH,
   });
   s.succeed('Configuring agents...');
+  setupMcp(workspaceDir, agents);
 
   // Phase 5: Nexus registration
   s = createSpinner('Engaging nexus...').start();
@@ -288,8 +292,11 @@ async function runJoin(vaultSource, workspaceDir, opts) {
     description: `Joined ${projectName} workspace`,
     author,
     templateVersion: TEMPLATE_VERSION,
+    vaultSync: DEFAULT_VAULT_SYNC,
+    vaultWatch: DEFAULT_VAULT_WATCH,
   });
   s.succeed('Configuring agents...');
+  setupMcp(workspaceDir, agents);
 
   s = createSpinner('Engaging nexus...').start();
   registerVaultMap(vaultName, vaultDir);
@@ -402,7 +409,7 @@ function createVault({ vaultName, projectName, description, techStack, author, d
   writeFile(path.join(vaultDir, '.obsidian', 'app.json'), obsidianTemplates.appJson());
   writeFile(path.join(vaultDir, '.obsidian', 'core-plugins.json'), obsidianTemplates.corePlugins());
   writeFile(path.join(vaultDir, '.obsidian', 'community-plugins.json'), obsidianTemplates.communityPlugins());
-  writeFile(path.join(vaultDir, '.obsidian', 'plugins', 'obsidian-git', 'data.json'), obsidianTemplates.gitPluginData());
+  writeFile(path.join(vaultDir, '.obsidian', 'plugins', 'obsidian-git', 'data.json'), obsidianTemplates.gitPluginData({ mcpSync: true }));
   writeFile(path.join(vaultDir, '.obsidian', 'appearance.json'), obsidianTemplates.appearance());
   writeFile(path.join(vaultDir, '.gitignore'), obsidianTemplates.vaultGitignore());
 
@@ -414,6 +421,15 @@ function createVault({ vaultName, projectName, description, techStack, author, d
   ensureDir(path.join(vaultDir, DECISIONS_DIR));
   writeFile(path.join(vaultDir, DECISIONS_DIR, 'README.md'), vaultTemplates.decisionsReadme());
   writeFile(path.join(vaultDir, 'SESSION_LOG.md'), vaultTemplates.sessionLog());
+
+  // Practices — code conventions served to agents via the MCP `practices` tool
+  ensureDir(path.join(vaultDir, PRACTICES_DIR));
+  writeFile(path.join(vaultDir, PRACTICES_DIR, 'README.md'), vaultTemplates.practicesReadme());
+  for (const area of ['frontend', 'auth', 'api']) {
+    writeFileIfNotExists(path.join(vaultDir, PRACTICES_DIR, `${area}.md`), vaultTemplates.practiceStarter(area));
+  }
+  // Handoffs — structured session handoffs (MCP `log_handoff` also appends to SESSION_LOG)
+  ensureDir(path.join(vaultDir, HANDOFFS_DIR));
   writeFile(path.join(vaultDir, 'GRAPH_REPORT.md'), vaultTemplates.graphReport({ projectName, date }));
 
   // Init git in vault
@@ -434,7 +450,19 @@ function createWorkspaceRules(vaultName, workspaceDir) {
   writeFile(path.join(rulesDir, '02-vault-rules.md'), workspaceRules.vaultRules({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), workspaceRules.contractDrift({ vaultName }));
   writeFile(path.join(rulesDir, '04-profile-rules.md'), workspaceRules.profileRules());
+  writeFile(path.join(rulesDir, '05-vault-brain-mcp.md'), workspaceRules.mcpRules());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
+}
+
+function setupMcp(workspaceDir, agents) {
+  const { written, instructions } = writeMcpConfig(workspaceDir, agents);
+  for (const w of written) {
+    log.success(`MCP registered for ${getAgentDisplay(w.agent)} → ${w.file} (${w.status})`);
+  }
+  for (const ins of instructions) {
+    log.warn(`MCP for ${getAgentDisplay(ins.agent)} needs manual setup:`);
+    log.dim(ins.text);
+  }
 }
 
 function createWorkspacePointers({ projectName, vaultName, repoDirs, agents, workspaceDir }) {
@@ -513,27 +541,31 @@ async function checkGitNexus(repoDirs, workspaceDir) {
 
   if (!hasGitNexus) {
     console.log('');
-    log.plain('GitNexus gives agents blast-radius analysis, execution flow tracing, and safe renames.');
+    log.plain('GitNexus is required — it powers the code graph (blast radius, flows, safe renames, god nodes).');
     const { install } = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'install',
-        message: 'GitNexus not found. Install it now?',
+        message: 'GitNexus not found. Install it now? (required)',
         default: true,
       },
     ]);
 
-    if (install) {
-      const is = createSpinner('Installing GitNexus...').start();
-      try {
-        execSync('npm install -g gitnexus', { stdio: 'pipe', timeout: 120000 });
-        is.succeed('GitNexus installed');
-        hasGitNexus = true;
-      } catch {
-        is.fail('GitNexus install failed — install manually: npm install -g gitnexus');
-      }
-    } else {
-      log.dim('Skipped — install later: npm install -g gitnexus');
+    if (!install) {
+      log.error('GitNexus is required to use devnexus. Install it and re-run:');
+      log.plain('  npm install -g gitnexus');
+      process.exit(1);
+    }
+
+    const is = createSpinner('Installing GitNexus...').start();
+    try {
+      execSync('npm install -g gitnexus', { stdio: 'pipe', timeout: 120000 });
+      is.succeed('GitNexus installed');
+      hasGitNexus = true;
+    } catch {
+      is.fail('GitNexus install failed');
+      log.error('GitNexus is required. Install it manually and re-run: npm install -g gitnexus');
+      process.exit(1);
     }
   }
 
@@ -581,6 +613,8 @@ function printDryRun({ projectName, vaultName, repoInputs, agents, workspaceDir 
   log.plain(`  ${vaultName}/ (Obsidian vault)`);
   log.plain('  .ai-rules/ (workspace rules)');
   log.plain('  .workspace-config');
+  if (agents.includes('claude')) log.plain('  .mcp.json (devnexus MCP)');
+  if (agents.includes('cursor')) log.plain('  .cursor/mcp.json (devnexus MCP)');
   for (const agent of agents) {
     log.plain(`  ${getPointerFilename(agent)}`);
   }

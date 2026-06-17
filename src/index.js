@@ -15,6 +15,9 @@ import { analyzeCommand } from './commands/analyze.js';
 import { indexCommand } from './commands/index.js';
 import { completionCommand } from './commands/completion.js';
 import { upgradeCommand } from './commands/upgrade.js';
+import { mcpCommand } from './commands/mcp.js';
+import { syncCommand } from './commands/sync.js';
+import { whyCommand } from './commands/why.js';
 
 export function createProgram() {
   const program = new Command();
@@ -35,6 +38,9 @@ export function createProgram() {
   program.addCommand(indexCommand());
   program.addCommand(completionCommand());
   program.addCommand(upgradeCommand());
+  program.addCommand(mcpCommand());
+  program.addCommand(syncCommand());
+  program.addCommand(whyCommand());
 
   return program;
 }

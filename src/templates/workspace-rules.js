@@ -179,6 +179,41 @@ Do NOT silently update the contract. Do NOT silently push. Surface it, present t
 `;
 }
 
+export function mcpRules() {
+  return `# Vault Brain (devnexus MCP)
+
+If the \`devnexus\` MCP server is connected, the vault is available as live tools.
+Use them — they prevent re-discovering dead ends and re-deciding settled questions.
+
+## Always Do
+
+- **MUST call \`vault_context\` at the START of every session** — it returns the map of
+  content, API contracts (verbatim), the last 3 handoffs, and which practice areas exist.
+  This replaces opening MOC.md / API_CONTRACTS.md / SESSION_LOG.md by hand.
+- **MUST call \`search_vault\` before proposing any architectural change** — check what was
+  already decided and rejected. Dead ends stay dead.
+- **MUST call \`practices({ area })\` before writing code in an area** (frontend, auth, etc.)
+  so you follow conventions up front, not after review.
+- **Before touching a shared structure**, call \`god_nodes\` / \`communities\` to see blast radius.
+- **Log decisions with \`log_decision\` AS THEY HAPPEN** — \`scope:"project"\` for tooling/infra,
+  \`scope:"symbol"\` (with \`refs\`) for decisions about specific functions/classes.
+- **At session end, call \`log_handoff\`** with branch, what's done, and what's next.
+
+## Never Do
+
+- NEVER propose an architectural change without \`search_vault\` first.
+- NEVER treat \`get_contract\` output as advisory — contracts are the final authority.
+- NEVER use devnexus tools for the live code graph. For callers, blast radius, and safe
+  renames use the **GitNexus** MCP (\`gitnexus_impact\`, \`gitnexus_query\`, \`gitnexus_context\`).
+  devnexus owns knowledge + derived structure; GitNexus owns the raw graph.
+
+## If the MCP is not connected
+
+Fall back to reading the vault files directly (see Session Start). The tools are a faster,
+more reliable surface over the same files — the rules above still apply either way.
+`;
+}
+
 export function profileRules() {
   return `# Profile & Session Update Rules
 

@@ -67,3 +67,15 @@ export function gitLastCommitTime(dir) {
     return null;
   }
 }
+
+// Short SHA + subject of the current HEAD, or null if not a repo / no commits.
+export function gitHeadInfo(dir) {
+  try {
+    const out = execSync('git log -1 --format=%h%x00%s', { cwd: dir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const [sha, subject] = out.trim().split('\x00');
+    if (!sha) return null;
+    return { sha, subject: subject || '' };
+  } catch {
+    return null;
+  }
+}

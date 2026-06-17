@@ -2,17 +2,21 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
+import { execSync } from 'child_process';
 import { log, createSpinner } from '../lib/output.js';
 import { requireConfig, writeConfig } from '../lib/config.js';
 import { detectStack } from '../lib/detect-stack.js';
-import { ensureDir, writeFile, migrateExistingPointer, concatenateRules, extractGitNexusBlock, writeManagedPointer } from '../lib/fs-helpers.js';
+import { ensureDir, writeFile, writeFileIfNotExists, migrateExistingPointer, concatenateRules, extractGitNexusBlock, writeManagedPointer } from '../lib/fs-helpers.js';
 import { getPointerFilename, getAgentDisplay, isInlineAgent } from '../lib/agents.js';
+import { isGitRepo } from '../lib/git.js';
 import * as pointerTemplates from '../templates/pointers.js';
-import { TEMPLATE_VERSION, DECISIONS_DIR } from '../constants.js';
+import { TEMPLATE_VERSION, DECISIONS_DIR, PRACTICES_DIR, HANDOFFS_DIR, DEFAULT_VAULT_SYNC, DEFAULT_VAULT_WATCH } from '../constants.js';
 import * as vaultTemplates from '../templates/vault.js';
+import * as obsidianTemplates from '../templates/obsidian.js';
 import { installContractHook, installGitNexusHook, installGitNexusPostMergeHook } from '../lib/hooks.js';
 import * as workspaceRules from '../templates/workspace-rules.js';
 import * as repoRules from '../templates/repo-rules.js';
+import { writeMcpConfig } from '../lib/mcp-config.js';
 
 export function updateCommand() {
   const cmd = new Command('update')
@@ -37,6 +41,10 @@ async function runUpdate(opts) {
 
   const config = requireConfig();
   const { projectName, vaultName, repos = [], agents = [] } = config;
+
+  // Backfill new config keys for workspaces created before v3.
+  if (config.vaultSync === undefined) config.vaultSync = DEFAULT_VAULT_SYNC;
+  if (config.vaultWatch === undefined) config.vaultWatch = DEFAULT_VAULT_WATCH;
 
   log.success(`Project: ${projectName}`);
   log.success(`Vault: ${vaultName}`);
@@ -73,6 +81,19 @@ async function runUpdate(opts) {
     syncInlinePointers(path.resolve('.'), agents);
     s.succeed('Updating workspace rules...');
     updated.push('.ai-rules/ (workspace)');
+
+    const { written, instructions } = writeMcpConfig(path.resolve('.'), agents);
+    for (const w of written) log.success(`MCP registered for ${getAgentDisplay(w.agent)} → ${w.file} (${w.status})`);
+    for (const ins of instructions) {
+      log.warn(`MCP for ${getAgentDisplay(ins.agent)} needs manual setup:`);
+      log.dim(ins.text);
+    }
+
+    const vaultMigrated = backfillVault(vaultName);
+    if (vaultMigrated.length > 0) {
+      log.success(`Vault migrated to v3: ${vaultMigrated.join(', ')}`);
+      log.dim('Review and commit the vault: cd ' + vaultName + ' && git add -A && git commit -m "devnexus: migrate to v3"');
+    }
 
     const migrated = migrateDecisions(vaultName);
     if (migrated > 0) {
@@ -115,6 +136,63 @@ async function runUpdate(opts) {
   console.log('');
 }
 
+// Bring a pre-v3 vault up to date: scaffold practices/ + handoffs/, gitignore the
+// derived layer (now local + per-branch), flip Obsidian Git to mcp-sync mode, and
+// untrack the derived files that used to be committed. Returns what changed.
+function backfillVault(vaultName) {
+  const vaultDir = path.resolve(vaultName);
+  if (!fs.existsSync(vaultDir)) return [];
+  const changed = [];
+
+  // practices/ (+ starters) and handoffs/
+  const pdir = path.join(vaultDir, PRACTICES_DIR);
+  if (!fs.existsSync(pdir)) {
+    ensureDir(pdir);
+    writeFile(path.join(pdir, 'README.md'), vaultTemplates.practicesReadme());
+    for (const a of ['frontend', 'auth', 'api']) {
+      writeFileIfNotExists(path.join(pdir, `${a}.md`), vaultTemplates.practiceStarter(a));
+    }
+    changed.push('practices/');
+  }
+  if (!fs.existsSync(path.join(vaultDir, HANDOFFS_DIR))) {
+    ensureDir(path.join(vaultDir, HANDOFFS_DIR));
+    changed.push('handoffs/');
+  }
+
+  // gitignore the derived layer + runtime dir
+  const giPath = path.join(vaultDir, '.gitignore');
+  let gi = fs.existsSync(giPath) ? fs.readFileSync(giPath, 'utf-8') : '';
+  const lines = new Set(gi.split('\n').map(l => l.trim()));
+  const entries = ['.devnexus/', 'NODE_INDEX.md', 'NODE_INDEX.json', 'GRAPH_REPORT.md', 'decisions/DECISION_INDEX.md', 'nodes/'];
+  const missing = entries.filter(e => !lines.has(e));
+  if (missing.length > 0) {
+    if (gi && !gi.endsWith('\n')) gi += '\n';
+    gi += '\n# Derived code graph — regenerated locally per branch (v3)\n' + missing.join('\n') + '\n';
+    fs.writeFileSync(giPath, gi);
+    changed.push('.gitignore');
+  }
+
+  // Obsidian Git → mcp-sync mode (auto-commit off; auto-pull stays on for viewing)
+  const ogData = path.join(vaultDir, '.obsidian', 'plugins', 'obsidian-git', 'data.json');
+  if (fs.existsSync(ogData)) {
+    writeFile(ogData, obsidianTemplates.gitPluginData({ mcpSync: true }));
+  }
+
+  // Untrack derived files that were committed pre-v3 (kept on disk via --cached)
+  if (isGitRepo(vaultDir)) {
+    let untracked = false;
+    for (const p of ['NODE_INDEX.md', 'NODE_INDEX.json', 'GRAPH_REPORT.md', 'decisions/DECISION_INDEX.md', 'nodes']) {
+      try {
+        execSync(`git rm -r --cached --quiet --ignore-unmatch "${p}"`, { cwd: vaultDir, stdio: 'pipe' });
+        untracked = true;
+      } catch { /* not tracked — fine */ }
+    }
+    if (untracked) changed.push('untracked derived files');
+  }
+
+  return changed;
+}
+
 function getCurrentVersion() {
   const versionFile = path.resolve('.ai-rules', 'version.txt');
   if (fs.existsSync(versionFile)) {
@@ -137,6 +215,7 @@ function updateWorkspaceRules(vaultName) {
   writeFile(path.join(rulesDir, '02-vault-rules.md'), workspaceRules.vaultRules({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), workspaceRules.contractDrift({ vaultName }));
   writeFile(path.join(rulesDir, '04-profile-rules.md'), workspaceRules.profileRules());
+  writeFile(path.join(rulesDir, '05-vault-brain-mcp.md'), workspaceRules.mcpRules());
   writeFile(path.join(rulesDir, 'version.txt'), TEMPLATE_VERSION + '\n');
 }
 

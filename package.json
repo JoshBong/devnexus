@@ -1,6 +1,6 @@
 {
   "name": "devnexus",
-  "version": "2.0.4",
+  "version": "3.0.0",
   "description": "Give your AI agents a shared brain across repos. Multi-dev AI engineering made easy.",
   "type": "module",
   "bin": {
@@ -45,6 +45,7 @@
     "url": "git+https://github.com/JoshBong/devnexus.git"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "inquirer": "^9.3.0",

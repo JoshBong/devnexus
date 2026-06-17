@@ -178,6 +178,49 @@ What was considered and why it was rejected/chosen. Free-form.
 `;
 }
 
+export function practicesReadme() {
+  return `# Code Practices
+
+> Project/team conventions, surfaced to agents BEFORE they write code.
+> The devnexus MCP serves these via \`practices({ area })\` — one file per area.
+
+## How it works
+
+Each \`<area>.md\` here is callable by name. An agent about to write frontend code calls
+\`practices({ area: "frontend" })\` and gets your conventions before writing, not after review.
+
+## Adding an area
+
+Drop a markdown file named after the area: \`frontend.md\`, \`auth.md\`, \`java.md\`, \`api.md\`, etc.
+Keep each one a focused list of do/don't rules — these are read on every relevant edit.
+
+## Wiring agents to use them
+
+The \`.ai-rules/\` "Vault Brain (devnexus MCP)" rule already tells agents to call
+\`practices({ area })\` before writing in an area. Name your files to match the areas you work in.
+`;
+}
+
+export function practiceStarter(area) {
+  const titles = {
+    frontend: 'Frontend',
+    auth: 'Auth & Sessions',
+    api: 'API Design',
+  };
+  return `# ${titles[area] || area} Practices
+
+> Conventions agents must follow before writing ${area} code. Replace these starters.
+
+## Do
+
+- (Add a rule. Example: validate all inputs at the boundary.)
+
+## Don't
+
+- (Add an anti-pattern. Example: never trust client-supplied IDs without a server check.)
+`;
+}
+
 export function sessionLog() {
   return `# Session Log
 

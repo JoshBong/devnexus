@@ -7,7 +7,8 @@ import { requireConfig } from '../lib/config.js';
 import { detectStack } from '../lib/detect-stack.js';
 import { getPointerFilename, pointerExists } from '../lib/agents.js';
 import { gitStatus, gitHasRemote, gitLastCommitTime, isGitRepo } from '../lib/git.js';
-import { TEMPLATE_VERSION, AI_PROFILE_DIR, DRIFT_DAYS_THRESHOLD } from '../constants.js';
+import { readSyncStatus } from '../lib/vault-sync.js';
+import { TEMPLATE_VERSION, AI_PROFILE_DIR, DRIFT_DAYS_THRESHOLD, DEFAULT_VAULT_SYNC } from '../constants.js';
 
 export function statusCommand() {
   const cmd = new Command('status')
@@ -51,6 +52,23 @@ function runStatus() {
     vaultInfo += ')';
 
     console.log(chalk.bold('Vault:   ') + `${vaultName}/  ${chalk.dim(vaultInfo)}`);
+
+    // devnexus-owned sync status
+    const mode = config.vaultSync || DEFAULT_VAULT_SYNC;
+    const sync = readSyncStatus(vaultDir);
+    if (mode === 'off') {
+      console.log(chalk.bold('Sync:    ') + chalk.dim('off (Obsidian Git / manual)'));
+    } else if (sync) {
+      let line;
+      if (sync.conflict) line = chalk.red('conflict — needs manual resolution');
+      else if (sync.offline || sync.pending > 0) line = chalk.yellow(`${sync.pending || 0} commit(s) pending push${sync.offline ? ' (offline)' : ''}`);
+      else line = chalk.green('up to date');
+      const when = sync.lastPush || sync.lastCommit;
+      console.log(chalk.bold('Sync:    ') + line + (when ? chalk.dim(`  last: ${new Date(when).toLocaleString()}`) : ''));
+      if (sync.conflict) issues.push({ msg: 'Vault has a sync conflict', fix: `cd ${vaultName} && git status` });
+    } else {
+      console.log(chalk.bold('Sync:    ') + chalk.dim('mcp (no activity yet)'));
+    }
   } else {
     console.log(chalk.bold('Vault:   ') + chalk.red(`${vaultName}/ (MISSING)`));
     issues.push({ msg: `Vault directory '${vaultName}' not found`, fix: `devnexus init` });
