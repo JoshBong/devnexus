@@ -60,9 +60,11 @@ export function vaultRules({ vaultName }) {
 
 After completing work, check whether the vault needs updating before ending the session.
 
-## Always update \`API_CONTRACTS.md\` when:
-- An endpoint's request or response shape changed
-- A new endpoint was added or removed
+## Always update \`API_CONTRACTS.md\` when the public interface changes:
+- A function/method signature or exported type changed
+- A CLI command or flag was added, removed, or changed
+- An HTTP endpoint's request or response shape changed, or one was added/removed
+- An event, message schema, or config key changed
 
 ## Always update \`ARCHITECTURE_OVERVIEW.md\` when:
 - A key data structure was added or changed
@@ -150,7 +152,7 @@ export function contractDrift({ vaultName }) {
 
 Before pushing code, compare your changes against \`./${vaultName}/API_CONTRACTS.md\`:
 
-1. Review the diff: which routes, request/response shapes, fields, status codes, or auth patterns changed?
+1. Review the diff: did any part of the public interface change — a function signature or exported type, a CLI command or flag, an HTTP route or request/response shape, a status code, an event, a config key, or an auth pattern?
 2. Read \`API_CONTRACTS.md\` and check whether it still matches the code you're about to push.
 
 **If you find a mismatch**, stop and say:
@@ -158,16 +160,16 @@ Before pushing code, compare your changes against \`./${vaultName}/API_CONTRACTS
 > *"I found a contract drift: [describe the specific difference]. What would you like to do?"*
 > 1. **Update the contract** — I'll update \`API_CONTRACTS.md\` to match the code changes
 > 2. **Revert the code** — the contract is correct, I'll roll back the change
-> 3. **Check impact first** — I'll analyze what depends on this endpoint before deciding
+> 3. **Check impact first** — I'll analyze what depends on this interface before deciding
 
 Do NOT silently update the contract. Do NOT silently push. Surface it, present the three options, and wait for a decision.
 
 **What counts as drift:**
-- A new endpoint exists in code but not in \`API_CONTRACTS.md\`
-- A documented endpoint was removed or renamed
-- Request or response fields were added, removed, or changed type
-- Status codes or error responses changed
-- Auth requirements for an endpoint changed
+- A part of the public interface exists in code but not in \`API_CONTRACTS.md\` (a new function, CLI flag, endpoint, event, or config key)
+- A documented interface was removed or renamed
+- Inputs or outputs were added, removed, or changed type (function params/return, request/response fields, flags)
+- Status codes or error/failure responses changed
+- Auth or access requirements changed
 `;
 }
 

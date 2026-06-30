@@ -1,4 +1,4 @@
-export const TEMPLATE_VERSION = '3.1';
+export const TEMPLATE_VERSION = '3.2';
 export const CONFIG_VERSION = '2.0';
 export const CONFIG_FILE = '.workspace-config';
 

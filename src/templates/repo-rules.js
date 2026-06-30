@@ -19,7 +19,7 @@ You are an expert engineer working on ${projectName}. This is ${repoStack}.
 The Obsidian vault at \`../${vaultName}/\` is the single source of truth for architecture, API contracts, and decisions. Always check there first before writing code.
 
 - **Architecture:** \`../${vaultName}/ARCHITECTURE_OVERVIEW.md\`
-- **API contracts:** \`../${vaultName}/API_CONTRACTS.md\` — the final authority on endpoint shapes
+- **Interface contracts:** \`../${vaultName}/API_CONTRACTS.md\` — the final authority on this project's public interface, whatever form it takes: HTTP endpoints, CLI commands and flags, exported functions and types, events, message schemas, or config keys
 - **Decisions:** \`../${vaultName}/DECISIONS.md\` (project-level) + \`../${vaultName}/decisions/DECISION_INDEX.md\` (symbol-linked)
 `;
 }
@@ -39,7 +39,7 @@ export function decisionLogic({ vaultName }) {
 export function contractDrift({ vaultName }) {
   return `# Contract Drift Check
 
-Before pushing code, diff your changes against \`../${vaultName}/API_CONTRACTS.md\`. If any route, request/response shape, field, status code, or auth pattern has changed and the contract doesn't reflect it, stop and say:
+Before pushing code, diff your changes against \`../${vaultName}/API_CONTRACTS.md\`. If any part of the public interface has changed — a function signature or exported type, a CLI command or flag, an HTTP route or request/response shape, a status code, an event, a config key, or an auth pattern — and the contract doesn't reflect it, stop and say:
 
 > *"I found a contract drift: [describe the specific difference]. What would you like to do?"*
 > 1. **Update the contract** — I'll update \`API_CONTRACTS.md\` to match the code

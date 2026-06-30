@@ -59,7 +59,7 @@ ${repoList || '| (add repos) | Active | |'}
 | File | Purpose |
 |------|---------|
 | [[ARCHITECTURE_OVERVIEW]] | How the system works, key communities |
-| [[API_CONTRACTS]] | Endpoint shapes — final authority |
+| [[API_CONTRACTS]] | Public interface — final authority (endpoints, CLI, exported functions, events) |
 | [[DECISIONS]] | Project-level decisions (license, tooling, infra) |
 | [[decisions/DECISION_INDEX]] | Symbol-linked decisions — auto-generated index |
 | [[GRAPH_REPORT]] | Structural analysis: nodes, edges, communities, god nodes |
@@ -93,23 +93,32 @@ Run \`devnexus index\` after \`devnexus analyze\` to generate structural analysi
 }
 
 export function apiContracts({ date }) {
-  return `# API Contracts
+  return `# Interface Contracts
 
 > **Last updated:** ${date}
-> If code and docs disagree, update the code. This file is the final authority.
+> The final authority on this project's public interface — whatever form it takes:
+> HTTP endpoints, CLI commands and flags, exported functions and types, events,
+> message schemas, or config keys. Document only what other code or users depend on.
+> If code and docs disagree, update the code, then this file.
 
-## Endpoints
+## Contracts
 
-<!-- Document your API endpoints here. Example: -->
+<!-- Document your public interface here. Use whichever sections fit the project. Examples: -->
 <!--
-### POST /api/users
-Creates a new user.
+### CLI: \`mytool sync --force\`
+Syncs the workspace. \`--force\` skips the version check.
+Exit: 0 ok · 1 usage error · 2 sync failure.
+
+### fn: parseConfig(raw: string) -> Config
+Throws ConfigError on malformed input. Unknown keys are ignored, not rejected.
+
+### HTTP: POST /api/users
 Request: { "email": "string", "name": "string" }
 Response: { "id": "string", "email": "string", "name": "string" }
 Errors: 400 (validation), 409 (duplicate email)
 -->
 
-(Add endpoints as you build them.)
+(Add contracts as you build them.)
 `;
 }
 
