@@ -62,6 +62,14 @@ async function runInit(opts) {
   if (isInteractive) {
     const vaultSource = await promptExistingVault();
     if (vaultSource) {
+      // --dry-run must not mutate: runJoin clones repos, writes rules/pointers/config and
+      // installs hooks. The dryRun check further down only guards the fresh-workspace flow,
+      // so gate the join here too.
+      if (opts.dryRun) {
+        log.info(`[dry run] Would JOIN the existing vault at ${vaultSource}:`);
+        log.info('  clone its repos, write .ai-rules/ + agent pointers, .workspace-config, MCP config, and git hooks.');
+        return;
+      }
       await runJoin(vaultSource, workspaceDir, opts);
       return;
     }
