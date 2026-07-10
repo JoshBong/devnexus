@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { buildIndex } from '../src/lib/index-builder.js';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT, SKIP_NO_GRAPH } from './helpers.js';
 
 // Symlink to real devnexus repo for GitNexus index (same pattern as index-builder.test.js)
 const tmpDir = path.join(os.tmpdir(), `devnexus-decision-test-${Date.now()}`);
@@ -29,7 +29,7 @@ function cleanup() {
   }
 }
 
-describe('decision system', () => {
+describe('decision system', { skip: SKIP_NO_GRAPH }, () => {
   before(setup);
   after(cleanup);
 
@@ -141,7 +141,7 @@ Testing that multiple refs all get backlinks.
   });
 });
 
-describe('decision system - edge cases', () => {
+describe('decision system - edge cases', { skip: SKIP_NO_GRAPH }, () => {
   it('handles empty decisions directory gracefully', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'devnexus-empty-dec-'));
     const vault = path.join(tmp, 'test-vault');

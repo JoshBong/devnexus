@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { buildIndex } from '../src/lib/index-builder.js';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT, SKIP_NO_GRAPH } from './helpers.js';
 
 function makeTestDir() {
   const dir = path.join(os.tmpdir(), `devnexus-edge-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -15,7 +15,7 @@ function makeTestDir() {
   return { dir, vault };
 }
 
-describe('wikilink safety', () => {
+describe('wikilink safety', { skip: SKIP_NO_GRAPH }, () => {
   it('no wikilinks in output contain raw | [ ] characters', () => {
     const { dir, vault } = makeTestDir();
     buildIndex(dir, 'vault', ['devnexus']);
@@ -55,7 +55,7 @@ describe('wikilink safety', () => {
   });
 });
 
-describe('markdown table integrity', () => {
+describe('markdown table integrity', { skip: SKIP_NO_GRAPH }, () => {
   it('every table row in NODE_INDEX has correct column count', () => {
     const { dir, vault } = makeTestDir();
     buildIndex(dir, 'vault', ['devnexus']);
@@ -110,7 +110,7 @@ describe('markdown table integrity', () => {
   });
 });
 
-describe('multi-repo orphan handling', () => {
+describe('multi-repo orphan handling', { skip: SKIP_NO_GRAPH }, () => {
   it('orphan communities from different repos have unique names', () => {
     const { dir, vault } = makeTestDir();
     buildIndex(dir, 'vault', ['devnexus']);
@@ -131,7 +131,7 @@ describe('multi-repo orphan handling', () => {
   });
 });
 
-describe('idempotency deep check', () => {
+describe('idempotency deep check', { skip: SKIP_NO_GRAPH }, () => {
   it('three consecutive runs produce identical output', () => {
     const { dir, vault } = makeTestDir();
 
@@ -172,7 +172,7 @@ describe('idempotency deep check', () => {
   });
 });
 
-describe('empty and degenerate cases', () => {
+describe('empty and degenerate cases', { skip: SKIP_NO_GRAPH }, () => {
   it('handles repo with no call edges gracefully', () => {
     // This tests the case where queryCallEdges returns empty
     // We can't easily mock this without the real repo, but we can verify

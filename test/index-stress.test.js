@@ -4,9 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { buildIndex } from '../src/lib/index-builder.js';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT, SKIP_NO_GRAPH } from './helpers.js';
 
-describe('index stress tests', () => {
+describe('index stress tests', { skip: SKIP_NO_GRAPH }, () => {
   it('no symbol file contains pipe characters that break markdown tables', () => {
     const testDir = path.join(os.tmpdir(), `devnexus-pipe-${Date.now()}`);
     const testVault = path.join(testDir, 'vault');

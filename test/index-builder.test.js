@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { buildIndex } from '../src/lib/index-builder.js';
-import { REPO_ROOT } from './helpers.js';
+import { REPO_ROOT, SKIP_NO_GRAPH } from './helpers.js';
 
 // These tests need a real GitNexus index to query against.
 // devnexus itself is indexed, so we symlink it into a temp workspace.
@@ -30,7 +30,7 @@ function cleanup() {
   }
 }
 
-describe('buildIndex', () => {
+describe('buildIndex', { skip: SKIP_NO_GRAPH }, () => {
   before(setup);
   after(cleanup);
 
@@ -174,7 +174,7 @@ describe('buildIndex', () => {
   });
 });
 
-describe('buildIndex edge cases', () => {
+describe('buildIndex edge cases', { skip: SKIP_NO_GRAPH }, () => {
   it('throws when repo has no GitNexus index', () => {
     const badDir = path.join(os.tmpdir(), `devnexus-bad-${Date.now()}`);
     const badVault = path.join(badDir, 'vault');
