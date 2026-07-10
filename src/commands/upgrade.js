@@ -44,7 +44,14 @@ async function runUpgrade(opts) {
   }
 
   log.info('Regenerating workspace rules...');
-  const { updateCommand } = await import('./update.js');
-  const updateCmd = updateCommand();
-  await updateCmd.parseAsync(['node', 'devnexus', 'update', '--force'], { from: 'user' });
+  // Must run in a FRESH process. This process statically imported the OLD update.js at
+  // startup, so a dynamic import('./update.js') here hits the ESM module cache and would
+  // regenerate rules with the pre-upgrade templates/TEMPLATE_VERSION — a silent no-op for
+  // the one case upgrade exists for. Shelling the just-installed `devnexus` binary loads
+  // the new code.
+  try {
+    execSync('devnexus update --force', { stdio: 'inherit' });
+  } catch {
+    log.error("Rules not regenerated. Run 'devnexus update --force' in your workspace.");
+  }
 }

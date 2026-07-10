@@ -303,7 +303,13 @@ function computeGodNodes(merged, bcScores) {
     .filter(s => s.totalEdges >= GOD_NODE_MIN_EDGES || s.crossCommunities >= GOD_NODE_MIN_COMMUNITIES || s.bc > 0.05)
     .sort((a, b) => {
       // Primary: betweenness centrality. Secondary: cross-community. Tertiary: edges.
-      if (Math.abs(b.bc - a.bc) > 0.001) return b.bc - a.bc;
+      // bc is bucketed to a fixed grain (3 decimals) so the comparator is a TOTAL order —
+      // the old `Math.abs(bc diff) > 0.001` epsilon test was intransitive (A≈B, B≈C, A≠C),
+      // which made Array.sort's result depend on input order and let a strictly-stronger
+      // symbol drop below the GOD_NODE_MAX cutoff. Deterministic now regardless of row order.
+      const abc = Math.round(a.bc * 1000);
+      const bbc = Math.round(b.bc * 1000);
+      if (bbc !== abc) return bbc - abc;
       if (b.crossCommunities !== a.crossCommunities) return b.crossCommunities - a.crossCommunities;
       if (b.totalEdges !== a.totalEdges) return b.totalEdges - a.totalEdges;
       return a.name.localeCompare(b.name);

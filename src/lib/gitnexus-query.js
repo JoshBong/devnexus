@@ -93,6 +93,13 @@ function readMeta(repoDir) {
  * Query all communities for a repo.
  * Returns: [{ id, label, cohesion, symbolCount }]
  */
+// KuzuDB returns tied/unordered rows in scheduling-dependent order (multithreaded
+// execution), so every query below pins a deterministic JS sort on its result. Without
+// this the downstream index (god nodes, community names, symbol-file link lists) churns
+// between identical runs — the root cause of the idempotency test flake. Sorting in JS
+// (rather than trusting the cypher ORDER BY) is robust to the DB's tie handling.
+function byId(a, b) { return String(a.id).localeCompare(String(b.id)); }
+
 function queryCommunities(repoName) {
   const rows = cypher(repoName, 'MATCH (c:Community) RETURN c');
   return rows.map(r => {
@@ -104,7 +111,7 @@ function queryCommunities(repoName) {
       cohesion: c.cohesion,
       symbolCount: c.symbolCount,
     };
-  });
+  }).sort(byId);
 }
 
 /**
@@ -119,7 +126,10 @@ function querySymbolMembership(repoName) {
     filePath: r['s.filePath'],
     communityId: r['c.id'],
     communityLabel: r['c.label'],
-  }));
+  })).sort((a, b) =>
+    String(a.name).localeCompare(String(b.name)) ||
+    String(a.filePath).localeCompare(String(b.filePath)) ||
+    String(a.communityId).localeCompare(String(b.communityId)));
 }
 
 /**
@@ -133,7 +143,10 @@ function querySymbolEdges(repoName) {
     name: r['s.name'],
     filePath: r['s.filePath'],
     edges: r['edges'],
-  }));
+  })).sort((a, b) =>
+    (Number(b.edges) - Number(a.edges)) ||
+    String(a.name).localeCompare(String(b.name)) ||
+    String(a.filePath).localeCompare(String(b.filePath)));
 }
 
 /**
@@ -146,7 +159,9 @@ function queryCrossCommunityEdges(repoName) {
   ).map(r => ({
     name: r['s.name'],
     crossCommunities: r['cross_communities'],
-  }));
+  })).sort((a, b) =>
+    (Number(b.crossCommunities) - Number(a.crossCommunities)) ||
+    String(a.name).localeCompare(String(b.name)));
 }
 
 /**
@@ -159,7 +174,9 @@ function queryCallEdges(repoName) {
   ).map(r => ({
     caller: r['a.name'],
     callee: r['b.name'],
-  }));
+  })).sort((a, b) =>
+    String(a.caller).localeCompare(String(b.caller)) ||
+    String(a.callee).localeCompare(String(b.callee)));
 }
 
 /**

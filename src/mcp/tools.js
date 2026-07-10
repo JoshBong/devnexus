@@ -427,7 +427,15 @@ function practices(ctx, args) {
     return text(`Available practice areas: ${areas.join(', ')}.\nCall \`practices({ area })\`.`);
   }
 
+  // `area` reaches an fs path, so it must not escape the practices dir. A malicious/
+  // injected call like area: "../../../.claude/CLAUDE" would otherwise read any .md on
+  // disk. Resolve and require containment (catches ../, absolute paths, and separators
+  // regardless of charset) rather than trusting the trim/lowercase.
   const file = path.join(dir, `${area}.md`);
+  const resolvedDir = path.resolve(dir);
+  if (path.resolve(file) !== path.join(resolvedDir, `${path.basename(area)}.md`)) {
+    return text(`Invalid practice area "${area}".`);
+  }
   if (!fs.existsSync(file)) {
     return text(
       `No practices for "${area}".` +

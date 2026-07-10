@@ -63,9 +63,14 @@ export function splitSections(md) {
   const lines = md.split('\n');
   const sections = [];
   let current = { heading: '', level: 0, lines: [] };
+  let inFence = false;
 
   for (const line of lines) {
-    const m = /^(#{1,6})\s+(.*)$/.exec(line);
+    // Track fenced code blocks (``` or ~~~) so a `# comment` inside a shell/markdown
+    // block is NOT mistaken for a heading — that split truncated contracts at a code
+    // comment and polluted the available-section list.
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+    const m = inFence ? null : /^(#{1,6})\s+(.*)$/.exec(line);
     if (m) {
       sections.push(current);
       current = { heading: m[2].trim(), level: m[1].length, lines: [line] };
@@ -96,11 +101,23 @@ export function lastEntries(md, n) {
   return sections.slice(-n).map(s => s.raw);
 }
 
-/** Pull a single ### / ## section whose heading contains `name` (case-insensitive). */
+/**
+ * Pull a section whose heading contains `name` (case-insensitive), INCLUDING its
+ * nested subsections — everything until the next heading at the same or a higher level.
+ * splitSections is flat (one atomic entry per heading), so a parent like `## Endpoints`
+ * with `### POST /users` children would otherwise return just the bare heading line.
+ */
 export function findSection(md, name) {
   const target = name.toLowerCase();
-  const hit = splitSections(md).find(s => s.heading.toLowerCase().includes(target));
-  return hit ? hit.raw : '';
+  const sections = splitSections(md);
+  const idx = sections.findIndex(s => s.heading.toLowerCase().includes(target));
+  if (idx === -1) return '';
+  const parts = [sections[idx].raw];
+  for (let i = idx + 1; i < sections.length; i++) {
+    if (sections[i].level <= sections[idx].level) break; // sibling/ancestor → stop
+    parts.push(sections[i].raw);
+  }
+  return parts.join('\n\n');
 }
 
 /** Recursively list markdown files under a vault subdir (relative paths). */
