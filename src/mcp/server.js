@@ -58,7 +58,10 @@ export async function startMcpServer({ workspace } = {}) {
       return { content: [{ type: 'text', text: `Unknown tool: ${req.params.name}` }], isError: true };
     }
     try {
-      return tool.handler(ctx, req.params.arguments || {});
+      // await, not return: an async handler's rejection must land in THIS catch and
+      // become a graceful isError tool result — returned un-awaited it bypasses the
+      // try/catch and surfaces as a JSON-RPC protocol error instead.
+      return await tool.handler(ctx, req.params.arguments || {});
     } catch (err) {
       return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
     }

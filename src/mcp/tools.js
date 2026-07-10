@@ -315,8 +315,14 @@ function godNodes(ctx) {
   if (!ctx) return noWorkspace();
   const { vaultDir, config } = ctx;
 
-  // Prefer the structured index; fall back to scraping markdown.
+  // Prefer the structured index; fall back to scraping markdown. A PRESENT index with a
+  // legitimately empty godNodes array is still authoritative — falling through to the
+  // committed markdown (which can be an older build) would report god nodes the fresh
+  // index says no longer exist.
   const idx = readIndexJson(vaultDir);
+  if (Array.isArray(idx?.godNodes) && !idx.godNodes.length) {
+    return text('No god nodes in the current index — no symbol exceeds the centrality/edge thresholds.');
+  }
   if (idx?.godNodes?.length) {
     const c = idx.corpus || {};
     const out = [
@@ -369,14 +375,19 @@ function communities(ctx) {
   if (!ctx) return noWorkspace();
   const { vaultDir } = ctx;
 
-  // Prefer the structured index; fall back to NODE_INDEX.md / _COMMUNITY files.
+  // Prefer the structured index; fall back to NODE_INDEX.md / _COMMUNITY files. Same
+  // present-but-empty rule as god_nodes, and tolerate partial entries (missing hubs)
+  // from an older/partial build instead of throwing out of the tool call.
   const idx = readIndexJson(vaultDir);
+  if (Array.isArray(idx?.communities) && !idx.communities.length) {
+    return text('No communities in the current index. Run `devnexus index` after `gitnexus analyze`.');
+  }
   if (idx?.communities?.length) {
     const out = [
       '# Communities\n',
       '| Community | Symbols | Hubs | Cohesion | Repo |',
       '|-----------|---------|------|----------|------|',
-      ...idx.communities.map(c => `| ${c.name} | ${c.size} | ${c.hubs.join(', ')} | ${c.cohesion} | ${c.repo} |`),
+      ...idx.communities.map(c => `| ${c.name} | ${c.size} | ${(c.hubs || []).join(', ')} | ${c.cohesion} | ${c.repo} |`),
     ];
     return text(out.join('\n'));
   }

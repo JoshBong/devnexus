@@ -153,6 +153,23 @@ test('practices lists areas and returns a named area', () => {
   assert.match(missing, /No practices for "rust"/);
 });
 
+test('why/god_nodes/communities degrade gracefully on a partial NODE_INDEX.json', async () => {
+  const { vaultDir, ctx } = makeWorkspace();
+  // valid JSON, but missing godNodes/symbols/communities arrays (older or partial build)
+  fs.writeFileSync(path.join(vaultDir, 'NODE_INDEX.json'), JSON.stringify({ schemaVersion: 1 }));
+  const w = textOf(await tool('why')(ctx, { symbol: 'anything' }));
+  assert.match(w, /anything/); // answered, did not throw
+  // present-but-EMPTY arrays are authoritative — no fallback to stale markdown
+  fs.writeFileSync(path.join(vaultDir, 'NODE_INDEX.json'),
+    JSON.stringify({ schemaVersion: 1, godNodes: [], communities: [] }));
+  fs.writeFileSync(path.join(vaultDir, 'GRAPH_REPORT.md'), '## God Nodes\n| stale | table |\n');
+  const g = textOf(tool('god_nodes')(ctx));
+  assert.match(g, /No god nodes in the current index/);
+  assert.ok(!g.includes('stale'));
+  const c = textOf(tool('communities')(ctx));
+  assert.match(c, /No communities in the current index/);
+});
+
 test('practices refuses a path-traversal area (no reading .md outside the vault)', () => {
   const { root, vaultDir, ctx } = makeWorkspace();
   // a secret .md sitting above the vault, reachable only via ../

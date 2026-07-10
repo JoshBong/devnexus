@@ -62,6 +62,14 @@ export async function startWatcher(ctx, { log = () => {} } = {}) {
       if (stopped || isIgnored(filename)) return;
       flush();
     });
+    // fs.watch delivers runtime failures as 'error' EVENTS (vault dir renamed/removed,
+    // inotify EMFILE/ENOSPC), not throws — unhandled, one would crash the whole MCP
+    // server and orphan the lease. Degrade to interval-pull-only instead.
+    watcher.on('error', (err) => {
+      log(`watcher: fs.watch error (${err.message}) — falling back to interval pull only`);
+      try { watcher.close(); } catch { /* already closed */ }
+      watcher = null;
+    });
   } catch (err) {
     // Recursive fs.watch isn't available everywhere (older Linux). Fail soft —
     // the per-write MCP sync still works; only background human-edit sync is lost.
@@ -84,14 +92,23 @@ export async function startWatcher(ctx, { log = () => {} } = {}) {
   })();
 
   const pullTimer = setInterval(() => { if (!stopped) syncRead(vaultDir, { sync }); }, WATCH_PULL_INTERVAL_MS);
-  const heartbeat = setInterval(() => { if (!stopped) refreshLease(vaultDir); }, WATCH_LEASE_HEARTBEAT_MS);
+  // If the heartbeat can't refresh, the lease is no longer ours (stolen after a long
+  // sleep, or the file was cleared). Two watchers on one vault means concurrent git —
+  // step down instead of ignoring it.
+  const heartbeat = setInterval(() => {
+    if (stopped) return;
+    if (!refreshLease(vaultDir)) {
+      log('watcher: lease lost — stopping (another process watches this vault now)');
+      api.stop();
+    }
+  }, WATCH_LEASE_HEARTBEAT_MS);
   // Don't let our timers keep the process alive past the MCP server's lifetime.
   pullTimer.unref?.();
   heartbeat.unref?.();
 
   log(watcher ? 'watcher: started' : 'watcher: started (interval-pull only)');
 
-  return {
+  const api = {
     stop() {
       if (stopped) return;
       stopped = true;
@@ -102,4 +119,5 @@ export async function startWatcher(ctx, { log = () => {} } = {}) {
       releaseLease(vaultDir);
     },
   };
+  return api;
 }

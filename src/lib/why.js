@@ -25,8 +25,10 @@ export function explainSymbol(vaultDir, symbol) {
   const result = { symbol, found: false, file: null, community: null, isGod: false, edges: null, indexed: !!idx, decisions: [] };
 
   if (idx) {
-    const god = idx.godNodes.find(g => g.name === symbol);
-    const sym = god || idx.symbols.find(s => s.name === symbol);
+    // Tolerate a partial/older NODE_INDEX.json (missing arrays) — degrade to
+    // "not found in the current index" rather than throwing out of the tool call.
+    const god = (idx.godNodes || []).find(g => g.name === symbol);
+    const sym = god || (idx.symbols || []).find(s => s.name === symbol);
     if (sym) {
       result.found = true;
       result.file = sym.file || null;

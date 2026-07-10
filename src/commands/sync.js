@@ -26,6 +26,12 @@ export function syncCommand() {
           const stop = () => { w.stop(); process.exit(0); };
           process.on('SIGINT', stop);
           process.on('SIGTERM', stop);
+          // Hold the event loop open explicitly. The watcher's own intervals are
+          // unref'd (right for the embedded MCP case), so when fs.watch falls back to
+          // interval-only mode NOTHING keeps a foreground --watch alive — the process
+          // printed "Watching…" and silently exited. A pending promise alone doesn't
+          // hold the loop either; this ref'd no-op interval does.
+          setInterval(() => {}, 1 << 30);
           await new Promise(() => {}); // run until interrupted
         } else {
           const r = await syncDirty(vaultDir, { sync, message: 'vault: manual sync' });
