@@ -181,18 +181,37 @@ function backfillVault(vaultName) {
     changed.push('.gitignore');
   }
 
-  // Obsidian Git → mcp-sync mode (auto-commit off; auto-pull stays on for viewing)
+  // Obsidian Git → mcp-sync mode (auto-commit off; auto-pull stays on for viewing).
+  // Write it ONCE — the migration marker is autoCommit still being on. Rewriting on
+  // every update clobbered any settings the user had customized since, silently.
   const ogData = path.join(vaultDir, '.obsidian', 'plugins', 'obsidian-git', 'data.json');
   if (fs.existsSync(ogData)) {
-    writeFile(ogData, obsidianTemplates.gitPluginData({ mcpSync: true }));
+    let needsFlip = true;
+    try {
+      const cur = JSON.parse(fs.readFileSync(ogData, 'utf-8'));
+      // autoSaveInterval > 0 = Obsidian Git still auto-commits (pre-v3); mcp-sync mode
+      // sets it to 0. Already 0 → user's file is left alone.
+      needsFlip = (cur.autoSaveInterval || 0) > 0;
+    } catch { /* unreadable — rewrite it */ }
+    if (needsFlip) {
+      writeFile(ogData, obsidianTemplates.gitPluginData({ mcpSync: true }));
+      changed.push('obsidian-git → mcp-sync mode');
+    }
   }
 
-  // Untrack derived files that were committed pre-v3 (kept on disk via --cached)
+  // Untrack derived files that were committed pre-v3 (kept on disk via --cached).
+  // -f forces past staged-content differences (pre-v3 Obsidian Git auto-staged these;
+  // without -f git rm refuses, the catch swallowed it, and the file stayed tracked +
+  // churning forever). `untracked` is only claimed when something was ACTUALLY
+  // untracked — --ignore-unmatch exits 0 on a no-op, which used to make every single
+  // update print the v3 migration banner.
   if (isGitRepo(vaultDir)) {
     let untracked = false;
     for (const p of ['NODE_INDEX.md', 'NODE_INDEX.json', 'GRAPH_REPORT.md', 'decisions/DECISION_INDEX.md', 'nodes']) {
       try {
-        execSync(`git rm -r --cached --quiet --ignore-unmatch "${p}"`, { cwd: vaultDir, stdio: 'pipe' });
+        const wasTracked = execSync(`git ls-files -- "${p}"`, { cwd: vaultDir, stdio: 'pipe', encoding: 'utf-8' }).trim().length > 0;
+        if (!wasTracked) continue;
+        execSync(`git rm -r -f --cached --quiet --ignore-unmatch "${p}"`, { cwd: vaultDir, stdio: 'pipe' });
         untracked = true;
       } catch { /* not tracked — fine */ }
     }
