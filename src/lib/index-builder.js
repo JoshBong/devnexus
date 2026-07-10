@@ -537,6 +537,16 @@ function computeCommunities(merged) {
     }
   }
 
+  // The hub suffix can itself collide (two repos, same dir name, same-named top hub) —
+  // and downstream, colliding names sanitize to ONE directory whose _COMMUNITY.md and
+  // symbol files silently overwrite each other. Guarantee uniqueness with a counter.
+  const seen = new Map();
+  for (const c of result) {
+    const n = seen.get(c.name) || 0;
+    seen.set(c.name, n + 1);
+    if (n > 0) c.name = `${c.name}-${n + 1}`;
+  }
+
   return result;
 }
 
@@ -665,7 +675,15 @@ function injectArchitectureOverview(vaultDir) {
       escapeRegex(INDEX_MARKER_START) + '[\\s\\S]*?' + escapeRegex(INDEX_MARKER_END),
       'g'
     );
-    content = content.replace(regex, block);
+    if (regex.test(content)) {
+      content = content.replace(regex, block);
+    } else {
+      // Orphaned START marker (END hand-deleted): the includes() check used to route
+      // here and the no-match replace silently never repaired the file. Lossless
+      // repair: swap the orphan marker line for a fresh fenced block; any stale body
+      // text below stays (user-visible, deletable) rather than risk eating their edits.
+      content = content.replace(INDEX_MARKER_START, block);
+    }
   } else {
     // Append before "## Known Gaps" if it exists, otherwise at the end
     const gapsIndex = content.indexOf('## Known Gaps');

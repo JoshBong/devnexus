@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CONFIG_FILE, NODE_INDEX_JSON_FILE } from '../constants.js';
+import { CONFIG_FILE, NODE_INDEX_JSON_FILE, INDEX_SCHEMA_VERSION } from '../constants.js';
 import { readConfig } from '../lib/config.js';
 
 /**
@@ -38,10 +38,16 @@ function buildContext(workspaceDir) {
   return { workspaceDir, vaultDir, config };
 }
 
-/** Read the structured NODE_INDEX.json, or null if it hasn't been built yet. */
+/**
+ * Read the structured NODE_INDEX.json, or null if it hasn't been built yet — or was
+ * built by a DIFFERENT schema version. Without the version gate, a future schema bump
+ * would render `undefined` cells in MCP output instead of falling back to markdown.
+ */
 export function readIndexJson(vaultDir) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(vaultDir, NODE_INDEX_JSON_FILE), 'utf-8'));
+    const idx = JSON.parse(fs.readFileSync(path.join(vaultDir, NODE_INDEX_JSON_FILE), 'utf-8'));
+    if (idx?.schemaVersion !== INDEX_SCHEMA_VERSION) return null;
+    return idx;
   } catch {
     return null;
   }
