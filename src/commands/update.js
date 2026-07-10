@@ -213,6 +213,7 @@ function getCurrentVersion() {
 function updateWorkspaceRules(vaultName) {
   const rulesDir = path.resolve('.ai-rules');
   const existingRules = preserveExistingRules(rulesDir);
+  const userRules = preserveUserRules(rulesDir);
 
   if (fs.existsSync(rulesDir)) {
     fs.rmSync(rulesDir, { recursive: true });
@@ -220,6 +221,7 @@ function updateWorkspaceRules(vaultName) {
   ensureDir(rulesDir);
 
   if (existingRules) writeFile(path.join(rulesDir, '00-existing-rules.md'), existingRules);
+  restoreUserRules(rulesDir, userRules);
   writeFile(path.join(rulesDir, '01-session-start.md'), workspaceRules.sessionStart({ vaultName }));
   writeFile(path.join(rulesDir, '02-vault-rules.md'), workspaceRules.vaultRules({ vaultName }));
   writeFile(path.join(rulesDir, '03-contract-drift.md'), workspaceRules.contractDrift({ vaultName }));
@@ -230,11 +232,13 @@ function updateWorkspaceRules(vaultName) {
 function updateRepoRules(absRepoDir, { projectName, vaultName, repoStack, agents }) {
   const rulesDir = path.join(absRepoDir, '.ai-rules');
   const existingRules = preserveExistingRules(rulesDir);
+  const userRules = preserveUserRules(rulesDir);
 
   if (fs.existsSync(rulesDir)) {
     fs.rmSync(rulesDir, { recursive: true });
   }
   ensureDir(rulesDir);
+  restoreUserRules(rulesDir, userRules);
 
   // Migrate pointer files that don't reference .ai-rules/
   for (const agent of agents) {
@@ -283,6 +287,46 @@ function preserveExistingRules(rulesDir) {
     return fs.readFileSync(existingPath, 'utf-8');
   }
   return null;
+}
+
+// The rule files devnexus itself writes — current names plus every legacy name a past
+// template version shipped (so a renumber like the v3.1 ai-profile removal doesn't leave
+// an orphan behind). Anything in .ai-rules/ NOT on this list is user-authored, and since
+// concatenateRules() reads EVERY .md as a live rule, those must survive `update`. Before,
+// update rm -rf'd the whole dir and restored only 00-existing-rules.md, silently deleting
+// a team's own 05-conventions.md et al.
+export const MANAGED_RULE_FILES = new Set([
+  '00-existing-rules.md', '00-gate.md',
+  '01-session-start.md', '01-source-of-truth.md',
+  '02-vault-rules.md', '02-decision-logic.md',
+  '03-contract-drift.md',
+  '04-vault-brain-mcp.md', '04-code-intelligence.md',
+  // legacy (pre-v3.1 numbering / removed ai-profile feature)
+  '04-operator-profile.md', '04-profile-rules.md',
+  '05-vault-brain-mcp.md', '05-code-intelligence.md',
+  'version.txt',
+]);
+
+// Snapshot user-authored rule files (anything devnexus doesn't own) so the dir can be
+// safely wiped and rebuilt without losing them. Returns { relPath: content }.
+export function preserveUserRules(rulesDir) {
+  const kept = {};
+  if (!fs.existsSync(rulesDir)) return kept;
+  for (const name of fs.readdirSync(rulesDir)) {
+    if (MANAGED_RULE_FILES.has(name)) continue;
+    const full = path.join(rulesDir, name);
+    try {
+      if (fs.statSync(full).isFile()) kept[name] = fs.readFileSync(full, 'utf-8');
+    } catch { /* skip unreadable */ }
+  }
+  return kept;
+}
+
+export function restoreUserRules(rulesDir, kept) {
+  for (const [name, content] of Object.entries(kept || {})) {
+    const dest = path.join(rulesDir, name);
+    if (!fs.existsSync(dest)) writeFile(dest, content);
+  }
 }
 
 function migrateDecisions(vaultName) {
