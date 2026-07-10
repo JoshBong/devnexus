@@ -83,15 +83,38 @@ function writeLock(file) {
   fs.closeSync(fd);
 }
 
+// Is the holder of this lock/lease record dead? SAME HOST: the pid check is
+// authoritative and runs FIRST — a live holder is never stale, no matter how long its
+// git ops run (one slow authenticated push exceeds any sane TTL, and the holder never
+// refreshes ts mid-operation; the old TTL-first order let a live lock be stolen at 30s,
+// putting two processes into concurrent rebases). DIFFERENT HOST: the pid is
+// unknowable, so the TTL is the only signal we have.
+function ownerDead(rec, ttlMs) {
+  if (rec.host === os.hostname()) return !pidAlive(rec.pid);
+  return Date.now() - rec.ts > ttlMs;
+}
+
 function isStale(file) {
   try {
-    const lock = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    if (Date.now() - lock.ts > SYNC_LOCK_TTL_MS) return true;
-    if (lock.host === os.hostname() && !pidAlive(lock.pid)) return true;
-    return false;
+    return ownerDead(JSON.parse(fs.readFileSync(file, 'utf-8')), SYNC_LOCK_TTL_MS);
   } catch {
     return true; // unparseable lock — treat as stale
   }
+}
+
+// Steal a stale lock/lease WITHOUT the unlink race: rename it aside first. Two stealers
+// both unlinking is how one deleted the OTHER's freshly written lock (unlink succeeds on
+// whatever the path holds NOW, not what you inspected). rename is atomic and only one
+// process wins it; the loser gets ENOENT and goes back to waiting.
+function stealStale(file) {
+  const tomb = `${file}.stale-${process.pid}`;
+  try {
+    fs.renameSync(file, tomb);
+  } catch {
+    return false; // someone else won the steal
+  }
+  try { fs.unlinkSync(tomb); } catch { /* best-effort cleanup */ }
+  return true;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -107,7 +130,7 @@ async function acquireLock(vaultDir, waitMs) {
     } catch (err) {
       if (err.code !== 'EEXIST') throw err;
       if (isStale(file)) {
-        try { fs.unlinkSync(file); } catch { /* another process stole it first */ }
+        stealStale(file);
         continue;
       }
       if (Date.now() >= deadline) return false;
@@ -138,10 +161,10 @@ function writeOwner(file) {
 
 function leaseStale(file) {
   try {
-    const l = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    if (Date.now() - l.ts > WATCH_LEASE_TTL_MS) return true;
-    if (l.host === os.hostname() && !pidAlive(l.pid)) return true;
-    return false;
+    // Same pid-first / ttl-cross-host logic as the sync lock (see ownerDead) — the old
+    // TTL-first order let a >30s laptop sleep hand the lease to a second MCP server
+    // while the first watcher kept running.
+    return ownerDead(JSON.parse(fs.readFileSync(file, 'utf-8')), WATCH_LEASE_TTL_MS);
   } catch {
     return true;
   }
@@ -155,8 +178,7 @@ export function acquireLease(vaultDir) {
     return true;
   } catch (err) {
     if (err.code !== 'EEXIST') return false;
-    if (leaseStale(file)) {
-      try { fs.unlinkSync(file); } catch { /* lost the race */ }
+    if (leaseStale(file) && stealStale(file)) {
       try { writeOwner(file); return true; } catch { return false; }
     }
     return false;

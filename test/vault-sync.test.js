@@ -175,16 +175,39 @@ test('lock serializes: a held lock makes a waiting write fall back to local', as
   assert.match(fs.readFileSync(path.join(dir, 'DECISIONS.md'), 'utf-8'), /## blocked/, 'write still happened');
 });
 
-test('stale lock (old ts) is stolen', async () => {
-  const dir = tmp('vs-stale-');
-  initRepo(dir);
-  seedVault(dir);
-  fs.mkdirSync(path.join(dir, '.devnexus'), { recursive: true });
-  fs.writeFileSync(path.join(dir, '.devnexus', 'sync.lock'),
-    JSON.stringify({ pid: process.pid, host: os.hostname(), ts: Date.now() - 60_000 })); // older than TTL
+test('stale lock semantics: dead-pid and dead-host stolen; a LIVE same-host holder is not', async () => {
+  const { execFileSync } = await import('child_process');
+  // a pid that definitely exited (spawned child), so same-host + dead-pid = stale
+  const deadPid = Number(execFileSync('sh', ['-c', 'echo $$'], { encoding: 'utf-8' }).trim());
 
-  const res = await syncedWrite(dir, { message: 'decision: stolen', sync: 'mcp' }, append(dir, '\n## stolen\n'));
-  assert.equal(res.committed, true, 'stale lock stolen, write committed');
+  // (a) same host, dead pid, FRESH ts → still stolen (pid check is authoritative)
+  const a = tmp('vs-stale-a-');
+  initRepo(a); seedVault(a);
+  fs.mkdirSync(path.join(a, '.devnexus'), { recursive: true });
+  fs.writeFileSync(path.join(a, '.devnexus', 'sync.lock'),
+    JSON.stringify({ pid: deadPid, host: os.hostname(), ts: Date.now() }));
+  const ra = await syncedWrite(a, { message: 'decision: stolen', sync: 'mcp' }, append(a, '\n## stolen\n'));
+  assert.equal(ra.committed, true, 'dead-pid lock stolen even with fresh ts');
+
+  // (b) other host, ts older than TTL → stolen (pid unknowable, TTL decides)
+  const b = tmp('vs-stale-b-');
+  initRepo(b); seedVault(b);
+  fs.mkdirSync(path.join(b, '.devnexus'), { recursive: true });
+  fs.writeFileSync(path.join(b, '.devnexus', 'sync.lock'),
+    JSON.stringify({ pid: 1234, host: 'some-other-machine', ts: Date.now() - 60_000 }));
+  const rb = await syncedWrite(b, { message: 'decision: xhost', sync: 'mcp' }, append(b, '\n## xhost\n'));
+  assert.equal(rb.committed, true, 'cross-host expired lock stolen');
+
+  // (c) same host, LIVE pid, ts older than TTL → NOT stolen. A long push exceeds any
+  // TTL and the holder never refreshes ts mid-op; stealing a live lock = concurrent git.
+  const c = tmp('vs-stale-c-');
+  initRepo(c); seedVault(c);
+  fs.mkdirSync(path.join(c, '.devnexus'), { recursive: true });
+  fs.writeFileSync(path.join(c, '.devnexus', 'sync.lock'),
+    JSON.stringify({ pid: process.pid, host: os.hostname(), ts: Date.now() - 60_000 }));
+  const rc = await syncedWrite(c, { message: 'decision: held', sync: 'mcp' }, append(c, '\n## held\n'));
+  assert.match(rc.note, /busy/, 'live same-host lock is respected regardless of ts');
+  assert.match(fs.readFileSync(path.join(c, 'DECISIONS.md'), 'utf-8'), /## held/, 'write still lands locally');
 });
 
 test('syncRead is a no-op without a remote', async () => {
