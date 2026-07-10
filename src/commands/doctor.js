@@ -7,7 +7,7 @@ import { log } from '../lib/output.js';
 import { requireConfig, writeConfig } from '../lib/config.js';
 import { getPointerFilename, getAgentDisplay } from '../lib/agents.js';
 import { isGitRepo, gitHasRemote } from '../lib/git.js';
-import { ensureDir, addToGitignore, writeFile, writeFileIfNotExists } from '../lib/fs-helpers.js';
+import { ensureDir, addToGitignore, writeFile, writeAgentPointer } from '../lib/fs-helpers.js';
 import { detectStack } from '../lib/detect-stack.js';
 import { TEMPLATE_VERSION, GITIGNORE_ENTRIES, DRIFT_DAYS_THRESHOLD, NODES_DIR, NODE_INDEX_FILE } from '../constants.js';
 import { hasIndex, readMeta } from '../lib/gitnexus-query.js';
@@ -127,8 +127,11 @@ function runDoctor(opts) {
       pass(`${filename} exists (${getAgentDisplay(agent)})`);
     } else {
       fail(`${filename} missing (${getAgentDisplay(agent)})`, `devnexus agent add ${agent}`, () => {
-        const content = pointerTemplates.workspacePointer({ projectName, vaultName, repos });
-        writeFileIfNotExists(filePath, content);
+        // inline agents get real rules, pointer agents get the stub (shared branch)
+        writeAgentPointer({
+          dir: process.cwd(), filename, agent,
+          pointerContent: pointerTemplates.workspacePointer({ projectName, vaultName, repos }),
+        });
       });
     }
   }
@@ -176,8 +179,10 @@ function runDoctor(opts) {
       } else {
         const repoStack = detectStack(absDir);
         fail(`${filename} missing`, `devnexus agent add ${agent} --repo ${repoDir}`, () => {
-          const content = pointerTemplates.repoPointer({ repoDir, repoStack });
-          writeFileIfNotExists(filePath, content);
+          writeAgentPointer({
+            dir: absDir, filename, agent,
+            pointerContent: pointerTemplates.repoPointer({ repoDir, repoStack }),
+          });
         });
       }
     }

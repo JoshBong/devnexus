@@ -8,7 +8,7 @@ import { requireConfig, writeConfig } from '../lib/config.js';
 import { detectStack } from '../lib/detect-stack.js';
 import { getPointerFilename, getAgentDisplay } from '../lib/agents.js';
 import { gitClone, isGitUrl, repoDirFromUrl } from '../lib/git.js';
-import { ensureDir, addToGitignore, writeFile, writeFileIfNotExists, migrateExistingPointer } from '../lib/fs-helpers.js';
+import { ensureDir, addToGitignore, writeFile, writeAgentPointer } from '../lib/fs-helpers.js';
 import { TEMPLATE_VERSION, GITIGNORE_ENTRIES } from '../constants.js';
 import { installContractHook, installGitNexusHook, installGitNexusPostMergeHook } from '../lib/hooks.js';
 import * as repoRules from '../templates/repo-rules.js';
@@ -107,15 +107,14 @@ async function runAdd(repos, opts) {
     installGitNexusPostMergeHook(absDir);
 
     for (const agent of agents) {
-      const filename = getPointerFilename(agent);
-      const filePath = path.join(absDir, filename);
-      const content = pointerTemplates.repoPointer({ repoDir: dirName, repoStack });
-
-      if (!writeFileIfNotExists(filePath, content)) {
-        if (migrateExistingPointer(filePath, path.join(absDir, '.ai-rules'))) {
-          writeFile(filePath, content);
-        }
-      }
+      // Inline agents (cursor/windsurf/generic) get the concatenated rules in managed
+      // fences, not a pointer stub they don't follow — same branch init/update take.
+      writeAgentPointer({
+        dir: absDir,
+        filename: getPointerFilename(agent),
+        agent,
+        pointerContent: pointerTemplates.repoPointer({ repoDir: dirName, repoStack }),
+      });
     }
 
     addToGitignore(absDir, GITIGNORE_ENTRIES);

@@ -57,6 +57,31 @@ describe('update: user rule preservation', () => {
   });
 });
 
+describe('writeAgentPointer: inline agents get rules, pointer agents get stubs', () => {
+  let dir;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dnx-ptr-'));
+    fs.mkdirSync(path.join(dir, '.ai-rules'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.ai-rules', '01-source-of-truth.md'), '# Rule One\nBody.');
+  });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('cursor (inline) gets the concatenated rules in managed fences, not a stub', async () => {
+    const { writeAgentPointer } = await import('../src/lib/fs-helpers.js');
+    writeAgentPointer({ dir, filename: '.cursorrules', agent: 'cursor', pointerContent: 'READ .ai-rules/' });
+    const out = fs.readFileSync(path.join(dir, '.cursorrules'), 'utf-8');
+    assert.match(out, /Rule One/); // real rules, inline
+    assert.ok(!out.includes('READ .ai-rules/'), 'no pointer stub for an inline agent');
+  });
+
+  it('claude (pointer) gets the stub, existing file kept', async () => {
+    const { writeAgentPointer } = await import('../src/lib/fs-helpers.js');
+    const created = writeAgentPointer({ dir, filename: 'CLAUDE.md', agent: 'claude', pointerContent: 'READ .ai-rules/' });
+    assert.equal(created, true);
+    assert.equal(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf-8'), 'READ .ai-rules/');
+  });
+});
+
 describe('update: migrateDecisions is non-destructive', () => {
   let vault;
   beforeEach(() => { vault = fs.mkdtempSync(path.join(os.tmpdir(), 'dnx-dec-')); });

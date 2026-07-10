@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { MANAGED_FENCE_START, MANAGED_FENCE_END } from '../constants.js';
+import { isInlineAgent } from './agents.js';
 
 export function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -87,6 +88,31 @@ export function extractGitNexusBlock(filePath) {
  * Preserves anything outside the managed fences.
  * On first run (no fences), existing content becomes the user section.
  */
+/**
+ * Write an agent's pointer file in the ONE correct shape for that agent type.
+ * Inline agents (Cursor/Windsurf/generic) don't follow "read .ai-rules/" pointers —
+ * that's what makes them inline — so they get the concatenated rules inside managed
+ * fences. Pointer agents get the stub (created if absent, migrated if legacy).
+ * init/update always did this branch; add/agent-add/doctor wrote the stub to
+ * everyone, leaving inline agents ruleless in that repo until the next update.
+ */
+export function writeAgentPointer({ dir, filename, agent, pointerContent }) {
+  const filePath = path.join(dir, filename);
+  if (isInlineAgent(agent)) {
+    const rules = concatenateRules(path.join(dir, '.ai-rules'));
+    const gnBlock = extractGitNexusBlock(path.join(dir, 'CLAUDE.md'));
+    writeManagedPointer(filePath, gnBlock ? `${rules}\n\n${gnBlock}` : rules);
+    return true;
+  }
+  if (!writeFileIfNotExists(filePath, pointerContent)) {
+    if (migrateExistingPointer(filePath, path.join(dir, '.ai-rules'))) {
+      writeFile(filePath, pointerContent);
+    }
+    return false;
+  }
+  return true;
+}
+
 export function writeManagedPointer(filePath, managedContent) {
   if (!fs.existsSync(filePath)) {
     // Fresh file — just the managed block

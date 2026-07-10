@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { log } from '../lib/output.js';
 import { requireConfig, writeConfig } from '../lib/config.js';
 import { validateAgents, getPointerFilename, getAgentDisplay, pointerExists } from '../lib/agents.js';
-import { writeFileIfNotExists } from '../lib/fs-helpers.js';
+import { writeFileIfNotExists, writeAgentPointer } from '../lib/fs-helpers.js';
 import { SUPPORTED_AGENTS } from '../constants.js';
 import * as pointerTemplates from '../templates/pointers.js';
 import { detectStack } from '../lib/detect-stack.js';
@@ -187,15 +187,18 @@ async function runAgentAdd(agentName, opts) {
   const filename = getPointerFilename(agent);
   const targetRepos = opts.repo ? [opts.repo] : repos;
 
-  // Create workspace-level pointer (unless targeting specific repo)
+  // Create workspace-level pointer (unless targeting specific repo). Inline agents get
+  // the concatenated rules in managed fences — a pointer stub is a file they don't read.
   if (!opts.repo) {
-    const wsPointerPath = path.resolve(filename);
-    const content = pointerTemplates.workspacePointer({ projectName, vaultName, repos });
-    if (writeFileIfNotExists(wsPointerPath, content)) {
-      log.success(`Created ${filename} (workspace root)`);
-    } else {
-      log.warn(`${filename} already exists at workspace root — keeping it`);
-    }
+    const created = writeAgentPointer({
+      dir: process.cwd(),
+      filename,
+      agent,
+      pointerContent: pointerTemplates.workspacePointer({ projectName, vaultName, repos }),
+    });
+    log[created ? 'success' : 'warn'](created
+      ? `Created ${filename} (workspace root)`
+      : `${filename} already exists at workspace root — keeping it`);
   }
 
   // Create repo-level pointers
@@ -207,14 +210,15 @@ async function runAgentAdd(agentName, opts) {
     }
 
     const repoStack = detectStack(absDir);
-    const filePath = path.join(absDir, filename);
-    const content = pointerTemplates.repoPointer({ repoDir, repoStack });
-
-    if (writeFileIfNotExists(filePath, content)) {
-      log.success(`Created ${repoDir}/${filename}`);
-    } else {
-      log.warn(`${repoDir}/${filename} already exists — keeping it`);
-    }
+    const created = writeAgentPointer({
+      dir: absDir,
+      filename,
+      agent,
+      pointerContent: pointerTemplates.repoPointer({ repoDir, repoStack }),
+    });
+    log[created ? 'success' : 'warn'](created
+      ? `Created ${repoDir}/${filename}`
+      : `${repoDir}/${filename} already exists — keeping it`);
   }
 }
 
