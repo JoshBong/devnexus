@@ -531,6 +531,14 @@ async function checkGitNexus(repoDirs, workspaceDir) {
   if (!hasGitNexus) {
     console.log('');
     log.plain('GitNexus is required — it powers the code graph (blast radius, flows, safe renames, god nodes).');
+    // Non-TTY (CI / flag-driven scripting): don't hang on a confirm no one can answer —
+    // and by this point the vault/rules are already written, so a hang here strands a
+    // half-initialized workspace. Fail fast with the fix.
+    if (!process.stdin.isTTY) {
+      log.error('GitNexus not found and this session is non-interactive. Install it and re-run:');
+      log.plain('  npm install -g gitnexus');
+      process.exit(1);
+    }
     const { install } = await inquirer.prompt([
       {
         type: 'confirm',

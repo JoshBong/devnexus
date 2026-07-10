@@ -84,6 +84,13 @@ export async function promptExistingVault() {
 }
 
 export async function confirm(message, defaultValue = true) {
+  // No TTY (CI, piped) → no one can answer; inquirer would hang on stdin or throw.
+  // Decline safely — every caller treats false as "cancelled", and the destructive
+  // commands document --yes for non-interactive use.
+  if (!process.stdin.isTTY) {
+    console.error(`Non-interactive session — declining: "${message}" (pass --yes to skip confirmation)`);
+    return false;
+  }
   const { ok } = await inquirer.prompt([
     {
       type: 'confirm',
