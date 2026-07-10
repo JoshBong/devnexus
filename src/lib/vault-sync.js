@@ -187,6 +187,25 @@ export function releaseLease(vaultDir) {
 
 // --- shared commit/push ----------------------------------------------------
 
+// Best-effort pre-write pull. CRITICAL: if the rebase hits a conflict it must be
+// ABORTED before we hand control to writeFn — otherwise the vault is left mid-rebase
+// with conflict markers and unmerged index entries, the subsequent `add`/`commit`
+// bakes those markers in, and every later sync repeats the failure. This is the exact
+// scenario the module promises never to produce (see the syncedWrite docstring), and it
+// was reachable whenever an earlier conflict left a local commit that the next pre-pull
+// replays. On any failure we abort, leave the tree clean on our local HEAD, and let the
+// downstream push path report the conflict/offline state. Returns { ok, conflict }.
+function safePull(vaultDir) {
+  const rb = git(vaultDir, ['pull', '--rebase', '--autostash', '--no-edit']);
+  if (rb.ok) return { ok: true, conflict: false };
+  // A rebase may be in progress (real conflict) or not (network/auth failed before it
+  // started). `rebase --abort` errors harmlessly in the latter case; either way the tree
+  // must be clean before writeFn. --quit as a fallback detaches any lingering rebase state.
+  const abort = git(vaultDir, ['rebase', '--abort']);
+  if (!abort.ok) git(vaultDir, ['rebase', '--quit']);
+  return { ok: false, conflict: isContention(rb.stderr) || /conflict/i.test(rb.stderr) };
+}
+
 // Push current commits, retrying through contention. Assumes a commit exists.
 function pushWithRetry(vaultDir) {
   let pushed = false, conflict = false, offline = false, lastErr = '';
@@ -197,7 +216,9 @@ function pushWithRetry(vaultDir) {
     if (isContention(push.stderr)) {
       const rb = git(vaultDir, ['pull', '--rebase', '--autostash', '--no-edit']);
       if (!rb.ok) {
-        git(vaultDir, ['rebase', '--abort']); // leave tree clean, keep our commit
+        // Leave the tree clean on our local commit. --quit if --abort itself fails, so we
+        // never return with a rebase still in progress.
+        if (!git(vaultDir, ['rebase', '--abort']).ok) git(vaultDir, ['rebase', '--quit']);
         conflict = true;
         break;
       }
@@ -293,7 +314,7 @@ export async function syncedWrite(vaultDir, { message, sync }, writeFn) {
 
   try {
     const remote = gitHasRemote(vaultDir);
-    if (remote) git(vaultDir, ['pull', '--rebase', '--autostash', '--no-edit']); // best-effort
+    if (remote) safePull(vaultDir); // never leaves a conflicted rebase in the tree
 
     const paths = writeFn() || [];
     if (paths.length === 0) return { paths, synced: false, committed: false };
@@ -335,7 +356,7 @@ export async function syncDirty(vaultDir, { sync, message } = {}) {
 
   try {
     const remote = gitHasRemote(vaultDir);
-    if (remote) git(vaultDir, ['pull', '--rebase', '--autostash', '--no-edit']);
+    if (remote) safePull(vaultDir); // never leaves a conflicted rebase in the tree
 
     // Stage everything EXCEPT our own runtime state. .devnexus/ is gitignored in
     // real vaults, but exclude it explicitly so sync never commits the lock/lease/status.
