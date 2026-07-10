@@ -35,6 +35,13 @@ function runDoctor(opts) {
 
   const config = requireConfig();
   const { projectName, vaultName, repos = [], agents = [] } = config;
+  // A config with no vaultName is broken (partial legacy parse, hand-edited file) —
+  // report it instead of crashing on path.resolve(undefined) further down.
+  if (!vaultName) {
+    log.error('.workspace-config has no vaultName — the file is incomplete or corrupt.');
+    log.plain('Fix it by hand or restore it from git.');
+    process.exit(1);
+  }
 
   let passes = 0;
   let warns = 0;
@@ -70,8 +77,11 @@ function runDoctor(opts) {
   if (fs.existsSync(vaultDir)) {
     // Support both old (ARCHITECTURE.md) and new (ARCHITECTURE_OVERVIEW.md + MOC.md) layouts
     const hasNewLayout = fs.existsSync(path.join(vaultDir, 'MOC.md'));
+    // GRAPH_REPORT.md is deliberately NOT expected: it's v3-derived (local, per-branch,
+    // gitignored) — a teammate who just cloned the vault legitimately has none until
+    // `devnexus index`, and warning on it was a false alarm. (verify.js already excludes it.)
     const expectedFiles = hasNewLayout
-      ? ['MOC.md', 'ARCHITECTURE_OVERVIEW.md', 'API_CONTRACTS.md', 'DECISIONS.md', 'SESSION_LOG.md', 'GRAPH_REPORT.md']
+      ? ['MOC.md', 'ARCHITECTURE_OVERVIEW.md', 'API_CONTRACTS.md', 'DECISIONS.md', 'SESSION_LOG.md']
       : ['ARCHITECTURE.md', 'API_CONTRACTS.md', 'DECISIONS.md', 'SESSION_LOG.md'];
     const missingVault = expectedFiles.filter(f => !fs.existsSync(path.join(vaultDir, f)));
 

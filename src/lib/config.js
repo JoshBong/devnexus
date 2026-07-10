@@ -12,6 +12,13 @@ export function readConfig(dir = process.cwd()) {
   try {
     return JSON.parse(content);
   } catch {
+    // A file that LOOKS like JSON but doesn't parse is corrupt — falling through to the
+    // legacy parser used to return a near-empty object stamped valid, so doctor said
+    // "found and valid" and then crashed on the missing fields. Surface it instead.
+    if (content.trimStart().startsWith('{')) {
+      console.error(`Corrupt ${CONFIG_FILE}: invalid JSON. Fix it by hand or restore it from git.`);
+      return null;
+    }
     // Fall back to legacy bash format
     return parseLegacyConfig(content);
   }
@@ -60,6 +67,11 @@ function parseLegacyConfig(content) {
     }
   }
 
-  config.version = CONFIG_VERSION;
+  // Nothing matched → this isn't a legacy config at all, it's an unrecognized file.
+  if (Object.keys(config).length === 1) return null;
+
+  // Deliberately NO version stamp: `version` is what marks a config as current-format
+  // JSON. Stamping it here made doctor's legacy-migration branch unreachable — every
+  // legacy config passed the version check and was never offered the migrate fix.
   return config;
 }
