@@ -9,7 +9,7 @@ Read these vault files before doing anything else:
 2. \`./${vaultName}/DECISIONS.md\` — project-level decisions (license, tooling, infra)
 3. \`./${vaultName}/decisions/DECISION_INDEX.md\` — symbol-linked decisions; check before editing any referenced symbol
 4. \`./${vaultName}/SESSION_LOG.md\` — where the last session left off
-4. \`./${vaultName}/ARCHITECTURE_OVERVIEW.md\` — system design and how repos connect (read on demand)
+5. \`./${vaultName}/ARCHITECTURE_OVERVIEW.md\` — system design and how repos connect (read on demand)
 
 Do not suggest code changes until you have read all of the above.
 

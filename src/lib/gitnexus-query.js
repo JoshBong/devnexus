@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -30,7 +30,12 @@ function parseCypherOutput(raw) {
   const rows = [];
 
   for (let i = 2; i < lines.length; i++) {
-    const cells = lines[i].split('|').map(c => c.trim()).filter(Boolean);
+    // Drop only the empty EDGE cells from the leading/trailing pipes — filter(Boolean)
+    // also deleted empty INTERIOR cells (a null filePath), shifting every later column
+    // left so an edge count landed in filePath and edges became ''.
+    let cells = lines[i].split('|').map(c => c.trim());
+    if (cells.length && cells[0] === '') cells = cells.slice(1);
+    if (cells.length && cells[cells.length - 1] === '') cells = cells.slice(0, -1);
     const row = {};
     for (let j = 0; j < headers.length; j++) {
       const val = cells[j] || '';
@@ -57,7 +62,9 @@ function parseCypherOutput(raw) {
  */
 function cypher(repoName, query) {
   try {
-    const raw = execSync(`npx gitnexus cypher -r ${repoName} "${query}"`, {
+    // arg array, no shell: a repo dir named with a space/$/quote (common on macOS)
+    // broke the interpolated command — and the failure was then swallowed below.
+    const raw = execFileSync('npx', ['gitnexus', 'cypher', '-r', repoName, query], {
       encoding: 'utf-8',
       timeout: 30000,
       maxBuffer: 50 * 1024 * 1024,
@@ -69,6 +76,9 @@ function cypher(repoName, query) {
       const output = err.stdout.toString().trim();
       if (output) return parseCypherOutput(output);
     }
+    // NOT silent: an empty result here flows into buildIndex, which wipes nodes/ and
+    // writes a gutted index — a timeout under load must be visible, not a mystery diff.
+    console.error(`gitnexus cypher failed for '${repoName}': ${(err.stderr || err.message || '').toString().trim().slice(0, 200)}`);
     return [];
   }
 }

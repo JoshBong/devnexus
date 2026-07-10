@@ -24,16 +24,19 @@ function writeJson(file, data) {
 }
 
 // Merge devnexus into a `{ mcpServers: {...} }` JSON file without clobbering
-// other servers. Returns 'created' | 'added' | 'present'.
+// other servers — or a user-customized devnexus entry (e.g. extra --workspace args);
+// if the key exists it is LEFT ALONE, matching the 'present' we report. (The old
+// version overwrote it while reporting 'present', and checked existsSync AFTER
+// writing, so 'created' was unreachable.) Returns 'created' | 'added' | 'present'.
 function mergeJsonMcp(file) {
+  const existedBefore = fs.existsSync(file);
   const existing = readJson(file) || {};
   const servers = existing.mcpServers || {};
-  const had = !!servers[MCP_SERVER_NAME];
+  if (servers[MCP_SERVER_NAME]) return 'present';
   servers[MCP_SERVER_NAME] = serverDef();
   existing.mcpServers = servers;
   writeJson(file, existing);
-  if (!fs.existsSync(file)) return 'created';
-  return had ? 'present' : 'added';
+  return existedBefore ? 'added' : 'created';
 }
 
 /**

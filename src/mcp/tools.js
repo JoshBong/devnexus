@@ -65,16 +65,21 @@ function syncNote(res) {
   return res.note ? `\n\n_${res.note}._` : '';
 }
 
-// Score a chunk against query terms (simple term-frequency, heading-weighted).
+// Score a chunk against query terms. Term COVERAGE dominates raw frequency: a chunk
+// matching all three query terms once must outrank a chunk repeating one term ten
+// times (pure summed TF let a changelog spamming "token" beat the actual
+// auth-token-rotation decision). Dedup so a repeated query word doesn't double-count.
 function scoreChunk(chunk, terms) {
   const hay = chunk.toLowerCase();
-  let score = 0;
-  for (const t of terms) {
+  let tf = 0;
+  let covered = 0;
+  for (const t of new Set(terms)) {
     if (!t) continue;
     const matches = hay.split(t).length - 1;
-    score += matches;
+    if (matches > 0) covered++;
+    tf += Math.min(matches, 5); // cap per-term spam
   }
-  return score;
+  return covered * 100 + tf;
 }
 
 // --- tools -----------------------------------------------------------------

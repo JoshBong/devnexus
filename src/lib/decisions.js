@@ -17,8 +17,19 @@ export function readDecisions(vaultDir) {
   const decisions = [];
   for (const file of files) {
     const content = fs.readFileSync(path.join(dir, file), 'utf-8');
-    const lines = content.split('\n');
-    const d = { filename: file.replace('.md', ''), title: '', date: '', author: '', status: 'ACTIVE', refs: [], commits: [], depends: '', body: '' };
+    let lines = content.split('\n');
+
+    // Tolerate standard Obsidian YAML frontmatter (--- fences at the very top): strip it
+    // before parsing. Otherwise the FIRST --- was taken as the metadata/body separator —
+    // the metadata scan ran zero lines, refs/date stayed empty, and the decision became
+    // permanently invisible to why/decisionsForSymbol with no warning.
+    if (lines[0]?.trim() === '---') {
+      const close = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
+      if (close !== -1) lines = lines.slice(close + 1);
+    }
+
+    // strip only the trailing .md, not the first occurrence anywhere in the name
+    const d = { filename: file.replace(/\.md$/, ''), title: '', date: '', author: '', status: 'ACTIVE', refs: [], commits: [], depends: '', body: '' };
 
     const titleLine = lines.find(l => l.startsWith('# '));
     if (titleLine) d.title = titleLine.slice(2).trim();

@@ -43,7 +43,12 @@ function hasUpstream(cwd) {
 }
 
 function pendingCount(cwd) {
+  // "Pending" = commits that haven't reached the remote. No remote at all → nothing to
+  // be pending AGAINST (the old total-of-HEAD made a local-only vault report its whole
+  // history, e.g. "pending: 47"). A remote with no upstream = never pushed → everything
+  // is genuinely pending. An upstream → the delta.
   if (!hasUpstream(cwd)) {
+    if (!gitHasRemote(cwd)) return 0;
     const r = git(cwd, ['rev-list', '--count', 'HEAD']);
     return r.ok ? Number(r.stdout) || 0 : 0;
   }

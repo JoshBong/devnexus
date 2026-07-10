@@ -631,7 +631,7 @@ function writeNodeIndex(vaultDir, godNodes, communities, merged /* , bcScores */
   md += `> Functional areas of the codebase. Click in for hubs and connections.\n\n`;
   for (const c of communities) {
     const hubs = c.hubs.slice(0, 3).map(h => `\`${h.name}\``).join(', ');
-    md += `- **[[${sanitizeDirName(c.name)}/_COMMUNITY|${c.name}]]** — ${c.symbolCount} symbols${hubs ? ` · start at ${hubs}` : ''}\n`;
+    md += `- **[[${sanitizeDirName(c.name)}/_COMMUNITY|${escapeWikilink(c.name)}]]** — ${c.symbolCount} symbols${hubs ? ` · start at ${hubs}` : ''}\n`;
   }
   md += `\n`;
 
@@ -893,7 +893,7 @@ function generateSymbolFile(symbol, community, merged, decisions = [], isGod = f
   if (decisions.length > 0) {
     md += `## Why\n\n`;
     for (const d of decisions) {
-      md += `- [[decisions/${d.filename}|${d.title}]] — ${d.status}\n`;
+      md += `- [[decisions/${d.filename}|${escapeWikilink(d.title)}]] — ${d.status}\n`;
     }
     md += `\n`;
   }
@@ -995,7 +995,7 @@ function writeDecisionIndex(vaultDir, decisions) {
     const refs = d.refs.length > 0
       ? d.refs.map(r => `[[${escapeWikilink(r)}]]`).join(', ')
       : '—';
-    md += `| ${d.date} | [[decisions/${d.filename}|${d.title}]] | ${d.status} | ${refs} |\n`;
+    md += `| ${d.date} | [[decisions/${d.filename}|${escapeWikilink(d.title)}]] | ${d.status} | ${refs} |\n`;
   }
 
   md += `\n`;

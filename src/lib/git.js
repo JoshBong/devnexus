@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,7 +21,9 @@ export function repoDirFromUrl(url) {
 }
 
 export function gitClone(url, cwd = process.cwd()) {
-  execSync(`git clone "${url}"`, { cwd, stdio: 'pipe' });
+  // arg array, no shell: a "URL" containing quotes/$/backticks passes isGitUrl
+  // (any https:// prefix) and would otherwise escape the quoting into the shell
+  execFileSync('git', ['clone', url], { cwd, stdio: 'pipe' });
   return repoDirFromUrl(url);
 }
 
@@ -34,7 +36,7 @@ export function gitAddAll(dir) {
 }
 
 export function gitCommit(dir, message) {
-  execSync(`git commit -q -m "${message}"`, { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-q', '-m', message], { cwd: dir, stdio: 'pipe' });
 }
 
 export function isGitRepo(dir) {

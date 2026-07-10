@@ -138,7 +138,7 @@ function runStatus() {
     const daysSince = Math.floor((Date.now() - lastIndexed.getTime()) / (1000 * 60 * 60 * 24));
     const stats = config.indexStats || {};
     let indexInfo = `last: ${lastIndexed.toLocaleDateString()}`;
-    if (stats.symbols) indexInfo += `, ${stats.symbols} symbols, ${stats.communities} communities, ${stats.godNodes} god nodes`;
+    if (stats.symbols) indexInfo += `, ${stats.symbols} symbols, ${stats.communities ?? 0} communities, ${stats.godNodes ?? 0} god nodes`;
     if (daysSince > DRIFT_DAYS_THRESHOLD) {
       indexInfo += chalk.yellow(` (${daysSince}d ago — consider reindexing)`);
       issues.push({ msg: `Code graph index is ${daysSince} days old`, fix: 'devnexus index' });
