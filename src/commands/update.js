@@ -329,7 +329,7 @@ export function restoreUserRules(rulesDir, kept) {
   }
 }
 
-function migrateDecisions(vaultName) {
+export function migrateDecisions(vaultName) {
   const vaultDir = path.resolve(vaultName);
   const decisionsDir = path.join(vaultDir, DECISIONS_DIR);
   const decisionsFile = path.join(vaultDir, 'DECISIONS.md');
@@ -338,23 +338,29 @@ function migrateDecisions(vaultName) {
   if (fs.existsSync(decisionsDir)) return 0;
 
   const content = fs.readFileSync(decisionsFile, 'utf-8');
-  const entryPattern = /^## (\d{4}-\d{2}-\d{2}) — (.+?)(?:\s+\(by (.+?)\))?$/gm;
+  // Accept BOTH an em-dash and a plain hyphen separator — pre-v3 vaults were hand-written
+  // and many entries use `## DATE - Title`. The old em-dash-only regex silently skipped
+  // those, and the rewrite (which reconstructed the file from matched entries) then
+  // DROPPED them entirely. headingStart/bodyEnd let the rewrite below excise only the
+  // migrated blocks and keep everything else — matched or not — verbatim.
+  const entryPattern = /^## (\d{4}-\d{2}-\d{2}) [—-] (.+?)(?:\s+\(by (.+?)\))?$/gm;
   const entries = [];
   let match;
 
   while ((match = entryPattern.exec(content)) !== null) {
     const [, date, title, author] = match;
-    const startIdx = match.index + match[0].length;
-    entries.push({ date, title, author: author || 'unknown', startIdx });
+    entries.push({
+      date, title, author: author || 'unknown',
+      headingStart: match.index,
+      bodyStart: match.index + match[0].length,
+    });
   }
 
-  // Extract body for each entry
+  // Body runs from the end of this heading to the start of the next entry heading (or EOF).
   for (let i = 0; i < entries.length; i++) {
-    const end = i + 1 < entries.length ? entries[i + 1].startIdx - entries[i + 1].date.length - entries[i + 1].title.length - 20 : content.length;
-    const nextMatch = i + 1 < entries.length
-      ? content.lastIndexOf(`## ${entries[i + 1].date}`, end + 50)
-      : content.length;
-    entries[i].body = content.slice(entries[i].startIdx, nextMatch).trim();
+    const bodyEnd = i + 1 < entries.length ? entries[i + 1].headingStart : content.length;
+    entries[i].bodyEnd = bodyEnd;
+    entries[i].body = content.slice(entries[i].bodyStart, bodyEnd).trim();
   }
 
   // Heuristic: does the body reference code symbols?
@@ -399,10 +405,19 @@ function migrateDecisions(vaultName) {
     migrated++;
   }
 
-  // Rewrite DECISIONS.md keeping only non-symbol entries
-  const nonSymbolEntries = entries.filter(e => !symbolEntries.includes(e));
-  const header = content.slice(0, content.indexOf('---') + 3);
-  let newContent = header.replace(
+  // Rewrite DECISIONS.md by EXCISING only the migrated symbol-entry blocks from the
+  // original text — preserving the header, free prose, and every non-migrated entry
+  // (including hyphen-format and any the parser didn't recognize) exactly as authored.
+  // Remove back-to-front so earlier spans' indices stay valid.
+  const migratedSpans = symbolEntries
+    .map(e => ({ start: e.headingStart, end: e.bodyEnd }))
+    .sort((a, b) => b.start - a.start);
+  let stripped = content;
+  for (const { start, end } of migratedSpans) {
+    stripped = stripped.slice(0, start) + stripped.slice(end);
+  }
+
+  const newContent = stripped.replace(
     /^> Reverse-chronological log of non-obvious decisions.*$/m,
     '> Append-only log for **project-level** decisions that don\'t reference specific code symbols.'
   ).replace(
@@ -414,12 +429,7 @@ function migrateDecisions(vaultName) {
   ).replace(
     /^> Agents read this.*$/m,
     '> Format: ## YYYY-MM-DD — Title (by [name]) followed by two sentences.'
-  );
-
-  for (const entry of nonSymbolEntries) {
-    newContent += `\n\n## ${entry.date} — ${entry.title}${entry.author !== 'unknown' ? ` (by ${entry.author})` : ''}\n\n${entry.body}`;
-  }
-  newContent += '\n';
+  ).replace(/\n{3,}/g, '\n\n').replace(/\s*$/, '\n');
 
   fs.writeFileSync(decisionsFile, newContent);
 
